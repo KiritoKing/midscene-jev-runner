@@ -60,9 +60,10 @@ const pageFor = (
 };
 
 const setupJevEnvironment = () => {
-  vi.stubEnv('MIDSCENE_JEV_API_KEY', 'secret-key-that-must-not-leak');
-  vi.stubEnv('MIDSCENE_JEV_BASE_URL', 'https://api.typesafe.ai/v1/');
-  vi.stubEnv('MIDSCENE_JEV_MODEL_NAME', 'jev-test');
+  vi.stubEnv('OPENROUTER_API_KEY', 'secret-key-that-must-not-leak');
+  vi.stubEnv('MIDSCENE_JEV_API_KEY', '');
+  vi.stubEnv('MIDSCENE_JEV_BASE_URL', '');
+  vi.stubEnv('MIDSCENE_JEV_MODEL_NAME', '');
 };
 
 afterEach(() => {
@@ -71,13 +72,13 @@ afterEach(() => {
 });
 
 describe('JEV runner', () => {
-  it('uses the official protocol endpoint, verifies DONE, and keeps sensitive URL parameters out of requests', async () => {
+  it('uses OpenRouter Decisions, verifies DONE, and keeps sensitive URL parameters out of requests', async () => {
     setupJevEnvironment();
     const { page } = pageFor([browserSnapshot()]);
     const fetch = vi.fn<typeof globalThis.fetch>(async () =>
       response({
         answers: { operation: { type: 'choice', choice: 'DONE' } },
-        usage: { input_tokens: 12, output_tokens: 4 },
+        usage: { input_tokens: 12, output_tokens: 4, cost: 0.000012 },
       }),
     );
     const verifier = vi.fn(async () => true);
@@ -91,7 +92,12 @@ describe('JEV runner', () => {
     expect(result).toMatchObject({
       steps: 1,
       completionVerified: true,
-      usage: { calls: 1, inputTokens: 12, outputTokens: 4 },
+      usage: {
+        calls: 1,
+        inputTokens: 12,
+        outputTokens: 4,
+        cost: 0.000012,
+      },
     });
     expect(verifier).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -101,10 +107,12 @@ describe('JEV runner', () => {
       }),
     );
     expect(fetch).toHaveBeenCalledWith(
-      'https://api.typesafe.ai/v1/systemone',
+      'https://openrouter.ai/api/alpha/decisions',
       expect.objectContaining({ method: 'POST' }),
     );
     const request = JSON.parse(String(fetch.mock.calls[0]?.[1]?.body));
+    expect(request.model).toBe('~typesafe/jev-latest');
+    expect(request.state.goal).toBe('Finish the form');
     expect(request.state.page.url).toBe('https://example.test/path');
     expect(JSON.stringify(request)).not.toContain('token=not-for-logs');
   });
@@ -116,7 +124,7 @@ describe('JEV runner', () => {
     const fetch = vi.fn(async () =>
       response({
         answers: { operation: { type: 'choice', choice: 'NOT_OFFERED' } },
-        usage: { input_tokens: 3, output_tokens: 2 },
+        usage: { input_tokens: 3, output_tokens: 2, cost: 0.000003 },
       }),
     );
 
@@ -136,6 +144,7 @@ describe('JEV runner', () => {
       calls: 1,
       inputTokens: 3,
       outputTokens: 2,
+      cost: 0.000003,
     });
     expect(JSON.stringify(events)).not.toContain(
       'secret-key-that-must-not-leak',
@@ -208,6 +217,38 @@ describe('JEV runner', () => {
     expect(verifier).toHaveBeenCalledTimes(2);
   });
 
+  it('stops after an action as soon as the independent verifier confirms completion', async () => {
+    setupJevEnvironment();
+    const { page, locator } = pageFor([
+      browserSnapshot('before'),
+      browserSnapshot('after'),
+    ]);
+    const fetch = vi.fn(async () =>
+      response({
+        answers: {
+          operation: { type: 'choice', choice: 'CLICK' },
+          click_target: { type: 'choice', choice: '1' },
+        },
+      }),
+    );
+    const verifier = vi.fn(async () => true);
+
+    const result = await runJev(page, {
+      goal: 'Click Continue',
+      fetch,
+      verifyCompletion: verifier,
+    });
+
+    expect(result).toMatchObject({
+      steps: 1,
+      completionVerified: true,
+      usage: { calls: 1 },
+    });
+    expect(locator.click).toHaveBeenCalledTimes(1);
+    expect(fetch).toHaveBeenCalledTimes(1);
+    expect(verifier).toHaveBeenCalledTimes(1);
+  });
+
   it('honors an already-aborted signal before issuing a model request', async () => {
     setupJevEnvironment();
     const { page } = pageFor([browserSnapshot()]);
@@ -219,7 +260,9 @@ describe('JEV runner', () => {
       runJev(page, { goal: 'Finish', fetch, signal: controller.signal }),
     ).rejects.toMatchObject({
       name: 'JevRunError',
-      result: { usage: { calls: 0, inputTokens: 0, outputTokens: 0 } },
+      result: {
+        usage: { calls: 0, inputTokens: 0, outputTokens: 0, cost: 0 },
+      },
     });
     expect(fetch).not.toHaveBeenCalled();
   });
@@ -261,7 +304,7 @@ describe('JEV runner', () => {
       let systemCalls = 0;
       const localFetch: typeof globalThis.fetch = async (input) => {
         const url = String(input);
-        if (url.endsWith('/systemone')) {
+        if (url.endsWith('/decisions')) {
           systemCalls += 1;
           if (systemCalls === 1)
             return response({

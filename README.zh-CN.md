@@ -25,12 +25,16 @@ pnpm add midscene-jev-runner @midscene/test playwright
 凭据只能通过进程环境变量传入，不要写入 YAML：
 
 ```sh
-export MIDSCENE_JEV_API_KEY=...
-export MIDSCENE_JEV_BASE_URL=https://your-jev-endpoint/v1
-export MIDSCENE_JEV_MODEL_NAME=jev-latest
+export OPENROUTER_API_KEY=...
 ```
 
-`MIDSCENE_JEV_MODEL_NAME` 默认是 `jev-latest`。如任务包含 `TYPE_TEXT`，还需
+Runner 默认请求 OpenRouter Decisions 的
+`https://openrouter.ai/api/alpha/decisions`，模型为
+`~typesafe/jev-latest`。兼容旧配置，未设置 `OPENROUTER_API_KEY` 时会回退读取
+`MIDSCENE_JEV_API_KEY`；兼容网关可通过 `MIDSCENE_JEV_BASE_URL` 和
+`MIDSCENE_JEV_MODEL_NAME` 覆盖。
+
+如任务包含 `TYPE_TEXT`，还需
 配置 `MIDSCENE_JEV_TEXT_API_KEY`、`MIDSCENE_JEV_TEXT_BASE_URL`、
 `MIDSCENE_JEV_TEXT_MODEL_NAME`，或对应的 `MIDSCENE_MODEL_*` 环境变量。
 

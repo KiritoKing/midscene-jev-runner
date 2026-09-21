@@ -27,12 +27,16 @@ Node.js `^20.19.0 || ^22.12.0 || >=24.0.0` is required.
 Set credentials in the process environment, never in YAML:
 
 ```sh
-export MIDSCENE_JEV_API_KEY=...
-export MIDSCENE_JEV_BASE_URL=https://your-jev-endpoint/v1
-export MIDSCENE_JEV_MODEL_NAME=jev-latest
+export OPENROUTER_API_KEY=...
 ```
 
-`MIDSCENE_JEV_MODEL_NAME` defaults to `jev-latest`. A `TYPE_TEXT` action also
+The runner calls OpenRouter Decisions at
+`https://openrouter.ai/api/alpha/decisions` with
+`~typesafe/jev-latest` by default. `MIDSCENE_JEV_API_KEY` remains supported as
+a compatibility fallback. Compatible gateways can be selected with
+`MIDSCENE_JEV_BASE_URL` and `MIDSCENE_JEV_MODEL_NAME`.
+
+A `TYPE_TEXT` action also
 requires either the `MIDSCENE_JEV_TEXT_API_KEY`,
 `MIDSCENE_JEV_TEXT_BASE_URL`, and `MIDSCENE_JEV_TEXT_MODEL_NAME` variables, or
 the corresponding `MIDSCENE_MODEL_*` variables.
