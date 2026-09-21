@@ -2,6 +2,14 @@
   "name": "midscene-jev-runner",
   "version": "0.1.0",
   "description": "Community-maintained JEV runner integration for Midscene Test",
+  "homepage": "https://github.com/KiritoKing/midscene-jev-runner#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/KiritoKing/midscene-jev-runner.git"
+  },
+  "bugs": {
+    "url": "https://github.com/KiritoKing/midscene-jev-runner/issues"
+  },
   "type": "module",
   "main": "./dist/lib/index.cjs",
   "module": "./dist/es/index.js",
