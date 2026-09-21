@@ -20,6 +20,8 @@ const browserSnapshot = (marker = 'first') => ({
   title: 'Example',
   text: 'Complete the form',
   marker,
+  alerts: [],
+  workflowSteps: [],
   actions: [
     {
       id: '1',
@@ -180,6 +182,141 @@ describe('JEV runner', () => {
     expect(locator.click).not.toHaveBeenCalled();
   });
 
+  it('includes prior action outcomes when replanning the next step', async () => {
+    setupJevEnvironment();
+    const { page } = pageFor([
+      browserSnapshot('before'),
+      browserSnapshot('after'),
+    ]);
+    const fetch = vi
+      .fn()
+      .mockResolvedValueOnce(
+        response({
+          answers: {
+            operation: { type: 'choice', choice: 'CLICK' },
+            click_target: { type: 'choice', choice: '1' },
+          },
+        }),
+      )
+      .mockResolvedValueOnce(
+        response({
+          answers: { operation: { type: 'choice', choice: 'DONE' } },
+        }),
+      );
+
+    const result = await runJev(page, { goal: 'Continue', fetch });
+
+    expect(result.steps).toBe(2);
+    const secondRequest = JSON.parse(String(fetch.mock.calls[1]?.[1]?.body));
+    expect(secondRequest.state.recent_actions).toEqual([
+      {
+        operation: 'CLICK',
+        target: '1',
+        label: 'Continue',
+        outcome: 'progressed',
+      },
+    ]);
+  });
+
+  it('withholds global navigation search fields while staged workflow controls are visible', async () => {
+    setupJevEnvironment();
+    const snapshot = {
+      ...browserSnapshot(),
+      workflowSteps: [],
+      actions: [
+        {
+          id: 'search',
+          node: '10',
+          guard: 'search',
+          kind: 'fill' as const,
+          label: 'Global Search',
+          role: 'input',
+          currentValue: '',
+          scope: 'global-navigation' as const,
+        },
+        {
+          id: 'next',
+          node: '11',
+          guard: 'next',
+          kind: 'click' as const,
+          label: 'Next',
+          role: 'button',
+        },
+      ],
+    };
+    const { page } = pageFor([snapshot]);
+    const fetch = vi.fn<typeof globalThis.fetch>(async (_input, init) => {
+      const request = JSON.parse(String(init?.body));
+      expect(request.state.page.workflow_active).toBe(true);
+      expect(request.questions.type_text_target).toBeUndefined();
+      return response({
+        answers: { operation: { type: 'choice', choice: 'DONE' } },
+      });
+    });
+
+    await runJev(page, { goal: 'Finish the current form', fetch });
+  });
+
+  it('does not offer a just-filled field again while its value remains accepted', async () => {
+    setupJevEnvironment();
+    vi.stubEnv('MIDSCENE_MODEL_API_KEY', 'local-text-key');
+    vi.stubEnv('MIDSCENE_MODEL_BASE_URL', 'https://local-model.test/v1');
+    vi.stubEnv('MIDSCENE_MODEL_NAME', 'local-text-model');
+    const field = (marker: string, currentValue: string) => ({
+      ...browserSnapshot(marker),
+      actions: [
+        {
+          id: 'field',
+          node: '12',
+          guard: 'field',
+          kind: 'fill' as const,
+          label: 'Activity name',
+          role: 'input',
+          currentValue,
+        },
+      ],
+    });
+    const { page } = pageFor([field('before', ''), field('after', 'clone')]);
+    let decisions = 0;
+    const fetch = vi.fn<typeof globalThis.fetch>(async (input, init) => {
+      if (String(input).endsWith('/chat/completions')) {
+        const request = JSON.parse(String(init?.body));
+        expect(request.max_tokens).toBe(1_024);
+        return response({
+          choices: [
+            {
+              message: {
+                content:
+                  '<think>select value</think>\n```json\n{"text":"clone"}\n```',
+              },
+            },
+          ],
+        });
+      }
+      decisions += 1;
+      const request = JSON.parse(String(init?.body));
+      if (decisions === 1) {
+        expect(request.questions.type_text_target.instructions.rules).toContain(
+          'Do not fill optional empty fields',
+        );
+        return response({
+          answers: {
+            operation: { type: 'choice', choice: 'TYPE_TEXT' },
+            type_text_target: { type: 'choice', choice: 'field' },
+          },
+        });
+      }
+      expect(request.questions.type_text_target).toBeUndefined();
+      return response({
+        answers: { operation: { type: 'choice', choice: 'DONE' } },
+      });
+    });
+
+    const result = await runJev(page, { goal: 'Name it clone', fetch });
+
+    expect(result.steps).toBe(2);
+  });
+
   it('feeds a rejected DONE back into the loop instead of treating model completion as business success', async () => {
     setupJevEnvironment();
     const { page } = pageFor([
@@ -201,6 +338,7 @@ describe('JEV runner', () => {
     const verifier = vi
       .fn()
       .mockResolvedValueOnce(false)
+      .mockResolvedValueOnce(false)
       .mockResolvedValueOnce(true);
 
     const result = await runJev(page, {
@@ -214,7 +352,7 @@ describe('JEV runner', () => {
       rejectedCompletions: 1,
       completionVerified: true,
     });
-    expect(verifier).toHaveBeenCalledTimes(2);
+    expect(verifier).toHaveBeenCalledTimes(3);
   });
 
   it('stops after an action as soon as the independent verifier confirms completion', async () => {
@@ -247,6 +385,43 @@ describe('JEV runner', () => {
     expect(locator.click).toHaveBeenCalledTimes(1);
     expect(fetch).toHaveBeenCalledTimes(1);
     expect(verifier).toHaveBeenCalledTimes(1);
+  });
+
+  it('checks completion before a second decision when the first action settles asynchronously', async () => {
+    setupJevEnvironment();
+    const { page, locator } = pageFor([
+      browserSnapshot('before'),
+      browserSnapshot('after'),
+    ]);
+    const fetch = vi.fn(async () =>
+      response({
+        answers: {
+          operation: { type: 'choice', choice: 'CLICK' },
+          click_target: { type: 'choice', choice: '1' },
+        },
+      }),
+    );
+    // The post-action check has not observed the settled page yet; the next
+    // loop's pre-decision check does, so no second decision/action is allowed.
+    const verifier = vi
+      .fn()
+      .mockResolvedValueOnce(false)
+      .mockResolvedValueOnce(true);
+
+    const result = await runJev(page, {
+      goal: 'Click Continue',
+      fetch,
+      verifyCompletion: verifier,
+    });
+
+    expect(result).toMatchObject({
+      steps: 1,
+      completionVerified: true,
+      usage: { calls: 1 },
+    });
+    expect(fetch).toHaveBeenCalledTimes(1);
+    expect(locator.click).toHaveBeenCalledTimes(1);
+    expect(verifier).toHaveBeenCalledTimes(2);
   });
 
   it('honors an already-aborted signal before issuing a model request', async () => {
@@ -366,6 +541,84 @@ describe('JEV runner', () => {
     } finally {
       await browser.close();
       await rm(temporaryDirectory, { force: true, recursive: true });
+    }
+  });
+
+  it('exposes a role-less component-library action instead of forcing a nearby semantic action', async () => {
+    setupJevEnvironment();
+    const browser = await chromium.launch({ headless: true });
+    const page = await browser.newPage();
+    try {
+      await page.setContent(`
+        <div class="next-arco-steps-item next-arco-steps-item-process">1 Select source</div>
+        <div class="demo-form-item">
+          <span class="demo-form-label">Activity unique name</span>
+          <div class="demo-form-item-control-input"><input placeholder="helper placeholder" /></div>
+        </div>
+        <span role="button" aria-label="复制" style="display: inline-block; width: 16px; height: 16px" onclick="document.querySelector('#status').textContent = 'Copied'" class="next-arco-typography-operation-copy"></span>
+        <span id="clone" style="cursor: pointer" onclick="document.querySelector('#status').textContent = 'Cloned'" class="next-arco-link operation-button-example">克隆</span>
+        <span id="plain">Not actionable</span>
+        <p id="status">Draft</p>
+      `);
+      const fetch = vi.fn<typeof globalThis.fetch>(async (_input, init) => {
+        const request = JSON.parse(String(init?.body));
+        expect(request.state.page.workflow_steps).toEqual([
+          expect.objectContaining({
+            index: 1,
+            label: '1 Select source',
+            status: 'process',
+          }),
+        ]);
+        expect(
+          Object.values(
+            request.questions.type_text_target.criteria as Record<
+              string,
+              { element: string }
+            >,
+          ),
+        ).toContainEqual(
+          expect.objectContaining({ element: 'Activity unique name' }),
+        );
+        const candidates = request.questions.click_target.criteria as Record<
+          string,
+          { element: string; role: string }
+        >;
+        const clone = Object.entries(candidates).find(
+          ([, candidate]) => candidate.element === '克隆',
+        );
+        expect(clone?.[1]).toEqual(
+          expect.objectContaining({ element: '克隆', role: 'button' }),
+        );
+        expect(
+          Object.values(candidates).some(
+            (candidate) => candidate.element === '复制',
+          ),
+        ).toBe(true);
+        expect(
+          Object.values(candidates).some(
+            (candidate) => candidate.element === 'Not actionable',
+          ),
+        ).toBe(false);
+        return response({
+          answers: {
+            operation: { type: 'choice', choice: 'CLICK' },
+            click_target: { type: 'choice', choice: clone?.[0] },
+          },
+        });
+      });
+
+      const result = await runJev(page, {
+        goal: '克隆活动',
+        fetch,
+        verifyCompletion: async ({ page: currentPage }) =>
+          (await currentPage.locator('#status').innerText()) === 'Cloned',
+      });
+
+      expect(result).toMatchObject({ steps: 1, completionVerified: true });
+      expect(await page.locator('#status').innerText()).toBe('Cloned');
+      expect(fetch).toHaveBeenCalledTimes(1);
+    } finally {
+      await browser.close();
     }
   });
 
