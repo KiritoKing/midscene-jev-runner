@@ -17,7 +17,7 @@ The package provides:
 ## Install
 
 ```sh
-pnpm add midscene-jev-runner @midscene/test playwright
+pnpm add @chlrc/midscene-jev-runner @midscene/test playwright
 ```
 
 Node.js `^20.19.0 || ^22.12.0 || >=24.0.0` is required.
@@ -45,7 +45,7 @@ the corresponding `MIDSCENE_MODEL_*` variables.
 
 ```ts
 import { defineProjectSetup, defineTestProject } from '@midscene/test/config';
-import { createJevNodes } from 'midscene-jev-runner';
+import { createJevNodes } from '@chlrc/midscene-jev-runner';
 import { chromium, type Browser, type Page } from 'playwright';
 
 interface ProjectContext {
@@ -93,7 +93,7 @@ does not prove business success.
 ## Direct use
 
 ```ts
-import { runJev } from 'midscene-jev-runner';
+import { runJev } from '@chlrc/midscene-jev-runner';
 
 const result = await runJev(page, {
   goal: 'Complete the form',

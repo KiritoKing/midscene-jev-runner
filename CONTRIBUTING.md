@@ -22,3 +22,6 @@ business-system fixtures must not be committed.
 - Keep `@midscene/test` and Playwright integration on their public APIs.
 - Use Conventional Commits with the `runner`, `docs`, or `workflow` scope.
 - Include the exact validation commands in pull request descriptions.
+
+Maintainers should follow [`RELEASING.md`](./RELEASING.md) for versioning and
+the automated npm release process.

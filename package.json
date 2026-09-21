@@ -1,5 +1,5 @@
 {
-  "name": "midscene-jev-runner",
+  "name": "@chlrc/midscene-jev-runner",
   "version": "0.1.0",
   "description": "Community-maintained JEV runner integration for Midscene Test",
   "homepage": "https://github.com/KiritoKing/midscene-jev-runner#readme",
@@ -32,6 +32,8 @@
   "scripts": {
     "build": "rslib build",
     "lint": "biome check .",
+    "prepack": "pnpm run build",
+    "release:verify": "node scripts/verify-release.mjs",
     "test": "vitest run",
     "typecheck": "tsc --noEmit",
     "check": "pnpm run lint && pnpm run typecheck && pnpm run test && pnpm run build"
@@ -67,6 +69,7 @@
   "sideEffects": false,
   "publishConfig": {
     "access": "public",
+    "provenance": true,
     "registry": "https://registry.npmjs.org"
   }
 }

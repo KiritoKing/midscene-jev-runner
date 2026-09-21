@@ -15,7 +15,7 @@ JEV Runner。本项目独立于 Midscene 仓库，不是 Midscene 官方包。
 ## 安装
 
 ```sh
-pnpm add midscene-jev-runner @midscene/test playwright
+pnpm add @chlrc/midscene-jev-runner @midscene/test playwright
 ```
 
 要求 Node.js `^20.19.0 || ^22.12.0 || >=24.0.0`。
@@ -42,7 +42,7 @@ Runner 默认请求 OpenRouter Decisions 的
 
 ```ts
 import { defineProjectSetup, defineTestProject } from '@midscene/test/config';
-import { createJevNodes } from 'midscene-jev-runner';
+import { createJevNodes } from '@chlrc/midscene-jev-runner';
 import { chromium, type Browser, type Page } from 'playwright';
 
 interface ProjectContext {
@@ -89,7 +89,7 @@ cases:
 ## 直接调用
 
 ```ts
-import { runJev } from 'midscene-jev-runner';
+import { runJev } from '@chlrc/midscene-jev-runner';
 
 const result = await runJev(page, {
   goal: 'Complete the form',
