@@ -70,4 +70,4 @@ jobs:
           name: npm-package
           path: release-artifact
       - name: Publish public package with provenance
-        run: npm publish release-artifact/*.tgz --access public --provenance
+        run: npm publish ./release-artifact/*.tgz --access public --provenance
