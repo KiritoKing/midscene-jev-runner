@@ -1,0 +1,7 @@
+cases:
+  - name: JEV completes the configured browser task
+    steps:
+      - jevAct:
+          goal: Complete the task on this page and leave visible evidence of completion.
+          maxSteps: 20
+          maxTaskMs: 180000
