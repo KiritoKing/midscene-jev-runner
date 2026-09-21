@@ -90,6 +90,10 @@ cases:
 Without it, `DONE` only means that the model decided the task was complete; it
 does not prove business success.
 
+Starting with `0.1.1`, the runner checks completion both after an action and
+before the next model decision, preventing extra operations after an
+asynchronous page transition has completed.
+
 ## Direct use
 
 ```ts

@@ -1,5 +1,5 @@
+import { createJevNodes } from '@chlrc/midscene-jev-runner';
 import { defineProjectSetup, defineTestProject } from '@midscene/test/config';
-import { createJevNodes } from 'midscene-jev-runner';
 import { type Browser, type Page, chromium } from 'playwright';
 
 interface ProjectContext {
