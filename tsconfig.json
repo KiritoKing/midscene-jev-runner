@@ -9,7 +9,7 @@
     "noEmit": true,
     "baseUrl": ".",
     "paths": {
-      "midscene-jev-runner": ["./src/index.ts"]
+      "@chlrc/midscene-jev-runner": ["./src/index.ts"]
     },
     "resolveJsonModule": true,
     "skipLibCheck": true,
