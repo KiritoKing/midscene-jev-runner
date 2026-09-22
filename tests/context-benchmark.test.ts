@@ -1,6 +1,6 @@
 import { chromium } from 'playwright';
 import type { Browser, Page } from 'playwright';
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { benchmarkFixtures } from '../experiments/context-benchmark/fixtures.js';
 import { selectWithJev } from '../experiments/context-benchmark/jev.js';
 import type {
@@ -212,7 +212,12 @@ describe('context strategy benchmark contracts', () => {
         );
       };
 
-      await selectWithJev(observation, challenge.goal, 'flat', fetch);
+      vi.stubEnv('MIDSCENE_JEV_API_KEY', 'unit-test-key');
+      try {
+        await selectWithJev(observation, challenge.goal, 'flat', fetch);
+      } finally {
+        vi.unstubAllEnvs();
+      }
 
       expect(requests).toHaveLength(1);
       expect(requests[0]).not.toContain('oracleId');
