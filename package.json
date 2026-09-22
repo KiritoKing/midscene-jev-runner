@@ -1,6 +1,6 @@
 {
   "name": "@chlrc/midscene-jev-runner",
-  "version": "0.1.2",
+  "version": "0.1.3-beta.0",
   "description": "Community-maintained JEV runner integration for Midscene Test",
   "homepage": "https://github.com/KiritoKing/midscene-jev-runner#readme",
   "repository": {
