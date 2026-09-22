@@ -7,7 +7,7 @@ export type BrowserActionKind =
   | 'wait'
   | 'dismiss';
 
-export type BrowserFactKind = BrowserActionKind | 'fill';
+export type BrowserFactKind = BrowserActionKind | 'fill' | 'text';
 
 export type BrowserRegion = 'dialog' | 'main' | 'navigation' | 'content';
 
@@ -53,6 +53,9 @@ export interface BrowserAction {
   matchedGoalTerms?: number;
   effect?: BrowserActionEffect;
   framePath?: number[];
+  frameUrl?: string;
+  frameName?: string;
+  frameDocumentId?: string;
   selector?: string;
   score?: number;
   signature?: string;
@@ -76,6 +79,9 @@ export interface BrowserFact {
   clickabilityEvidence?: string;
   taskAlignment?: BrowserTaskAlignment;
   matchedGoalTerms?: number;
+  framePath?: number[];
+  frameUrl?: string;
+  frameName?: string;
   visible: boolean;
   actionable: boolean;
   covered: boolean;

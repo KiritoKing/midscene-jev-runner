@@ -105,7 +105,7 @@ describe('hybrid browser context', () => {
       expect(clone).toEqual(
         expect.objectContaining({
           role: 'text-action',
-          clickabilityEvidence: 'goal-relevant-text',
+          clickabilityEvidence: 'structured-action-slot',
           taskAlignment: 'label-and-scope',
         }),
       );
@@ -135,7 +135,7 @@ describe('hybrid browser context', () => {
         expect(target?.[1]).toEqual(
           expect.objectContaining({
             task_alignment: 'label-and-scope',
-            clickability_evidence: 'goal-relevant-text',
+            clickability_evidence: 'structured-action-slot',
           }),
         );
         return response({
@@ -159,43 +159,137 @@ describe('hybrid browser context', () => {
     });
   });
 
-  it('does not execute a low-confidence target with no direct goal-label alignment', async () => {
-    await withPage(async (page) => {
-      configureJev();
-      await page.setContent(`
+  it.each([
+    ['a low probability', { probability: 0.21 }],
+    ['missing probabilities', {}],
+  ] as Array<[string, { probability?: number }]>)(
+    'does not let %s alone block a legal action',
+    async (_label, options) => {
+      await withPage(async (page) => {
+        configureJev();
+        await page.setContent(`
         <main>
           <button type="button" onclick="this.dataset.clicked = 'true'">Create new</button>
           <p>Activity AC100</p>
         </main>
       `);
-      const fetch = vi.fn<typeof globalThis.fetch>(async (_input, init) => {
-        const request = JSON.parse(String(init?.body)) as Record<
-          string,
-          unknown
-        >;
-        const target = targetChoice(request, 'CLICK', 'Create new');
-        return response({
-          answers: {
-            operation: { type: 'choice', choice: 'CLICK' },
-            click_target: {
-              type: 'choice',
-              choice: target,
-              probabilities: { [target]: 0.21 },
+        const fetch = vi.fn<typeof globalThis.fetch>(async (_input, init) => {
+          const request = JSON.parse(String(init?.body)) as Record<
+            string,
+            unknown
+          >;
+          const target = targetChoice(request, 'CLICK', 'Create new');
+          return response({
+            answers: {
+              operation: { type: 'choice', choice: 'CLICK' },
+              click_target: {
+                type: 'choice',
+                choice: target,
+                ...(options.probability === undefined
+                  ? {}
+                  : { probabilities: { [target]: options.probability } }),
+              },
             },
-          },
+          });
         });
+
+        await expect(
+          runJev(page, {
+            goal: 'Clone activity AC100',
+            fetch,
+            verifyCompletion: async ({ page: current }) =>
+              (await current.locator('button').getAttribute('data-clicked')) ===
+              'true',
+          }),
+        ).resolves.toMatchObject({ completionVerified: true });
       });
+    },
+  );
+
+  it('rejects a reused target when its current group identity changed after observation', async () => {
+    await withPage(async (page) => {
+      await page.setContent(`
+        <main>
+          <div id="account" role="group" aria-label="Account A">
+            <button type="button" onclick="this.closest('[role=group]').dataset.clicked = 'true'">Delete</button>
+          </div>
+        </main>
+      `);
+      const observed = await observe(page, 'Delete Account A');
+      const action = observed.actions.find((item) => item.label === 'Delete');
+      if (!action) throw new Error('Expected Delete action in observation.');
+
+      await page
+        .locator('#account')
+        .evaluate((element) => element.setAttribute('aria-label', 'Account B'));
+      const fresh = await executeAction(
+        page,
+        action,
+        new AbortController().signal,
+      );
+
+      expect(fresh).toBe(false);
+      await expect(
+        page.locator('#account').getAttribute('data-clicked'),
+      ).resolves.toBeNull();
+    });
+  });
+
+  it('rejects a frame target when the indexed frame was replaced by a new document', async () => {
+    await withPage(async (page) => {
+      await page.setContent(
+        `<iframe id="account-frame" srcdoc="<button type='button' onclick=&quot;document.body.dataset.clicked='true'&quot;>Delete account</button>"></iframe>`,
+      );
+      await page
+        .frameLocator('#account-frame')
+        .getByRole('button')
+        .waitFor({ state: 'visible' });
+      const observed = await observe(page, 'Delete account');
+      const action = observed.actions.find(
+        (item) => item.label === 'Delete account',
+      );
+      if (!action) throw new Error('Expected framed Delete account action.');
+
+      await page.evaluate(() => {
+        const previous = document.querySelector('#account-frame');
+        const replacement = document.createElement('iframe');
+        replacement.id = 'account-frame';
+        replacement.srcdoc =
+          '<button type="button" onclick="document.body.dataset.clicked=\'true\'">Delete account</button>';
+        previous?.replaceWith(replacement);
+      });
+      await page
+        .frameLocator('#account-frame')
+        .getByRole('button')
+        .waitFor({ state: 'visible' });
 
       await expect(
-        runJev(page, {
-          goal: 'Clone activity AC100',
-          fetch,
-          maxNoProgressSteps: 1,
-        }),
-      ).rejects.toThrow('low-confidence target');
+        executeAction(page, action, new AbortController().signal),
+      ).resolves.toBe(false);
       await expect(
-        page.locator('button').getAttribute('data-clicked'),
+        page
+          .frameLocator('#account-frame')
+          .locator('body')
+          .getAttribute('data-clicked'),
       ).resolves.toBeNull();
+    });
+  });
+
+  it('keeps goal-relevant plain text as a fact without treating it as a click action', async () => {
+    await withPage(async (page) => {
+      await page.setContent('<main><p>Save profile</p></main>');
+      const snapshot = await observe(page, 'Save profile');
+
+      expect(snapshot.facts).toContainEqual(
+        expect.objectContaining({
+          label: 'Save profile',
+          role: 'text',
+          actionable: false,
+        }),
+      );
+      expect(snapshot.actions).not.toContainEqual(
+        expect.objectContaining({ label: 'Save profile', kind: 'click' }),
+      );
     });
   });
 

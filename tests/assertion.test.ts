@@ -248,7 +248,7 @@ describe('JEV assertions', () => {
         prompt: 'The confirmation is visible',
         fetch: vi.fn<typeof globalThis.fetch>(async () => response(body)),
       }),
-    ).rejects.toThrow(/noul|assertion/i);
+    ).rejects.toThrow(/noul|assertion|response shape/i);
   });
 
   it('registers jevAssert with Midscene string input and preserves structured results on non-passes', async () => {
@@ -364,7 +364,7 @@ describe('JEV assertions', () => {
     expect(fetch).toHaveBeenCalledTimes(2);
   });
 
-  it('preserves visible text boundaries and omits empty evidence collections', async () => {
+  it('preserves visible text boundaries and text evidence without empty layers', async () => {
     setupJevEnvironment();
     const browser = await chromium.launch({ headless: true });
     try {
@@ -395,8 +395,67 @@ describe('JEV assertions', () => {
       expect(state?.browser_evidence?.page?.visible_text).toBe(
         'Checkout complete Order saved successfully',
       );
-      expect(state?.browser_evidence).not.toHaveProperty('elements');
+      expect(state?.browser_evidence?.elements).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            label: 'Checkout complete',
+            role: 'text',
+            actionable: false,
+          }),
+        ]),
+      );
       expect(state?.browser_evidence).not.toHaveProperty('active_layers');
+    } finally {
+      await browser.close();
+    }
+  });
+
+  it('retains pure text evidence from child frames when executable actions are excluded', async () => {
+    setupJevEnvironment();
+    const browser = await chromium.launch({ headless: true });
+    try {
+      const page = await browser.newPage();
+      await page.setContent(
+        '<main><h1>Checkout shell</h1><iframe id="receipt-frame"></iframe></main>',
+      );
+      const iframe = await page.locator('#receipt-frame').elementHandle();
+      const frame = await iframe?.contentFrame();
+      if (!frame) throw new Error('Receipt iframe was unavailable.');
+      await frame.setContent('<p>Unique receipt accepted</p>');
+
+      let request: Record<string, unknown> | undefined;
+      const fetch = vi.fn<typeof globalThis.fetch>(async (_input, init) => {
+        request = JSON.parse(String(init?.body));
+        return assertionResponse(0.95);
+      });
+
+      await evaluateJevAssertion(page, {
+        prompt: 'The receipt was accepted',
+        fetch,
+      });
+
+      const evidence = (request?.state as Record<string, unknown>)
+        ?.browser_evidence as Record<string, unknown>;
+      expect(JSON.stringify(evidence)).toContain('Unique receipt accepted');
+      expect(JSON.stringify(evidence)).toContain('frame_path');
+      expect(evidence).not.toHaveProperty('actions');
+      await expect(
+        page.locator('[data-midscene-jev-id]').count(),
+      ).resolves.toBe(0);
+      await expect(
+        page.evaluate(
+          () =>
+            '__midsceneJevSnapshot' in
+            (window as unknown as Record<string, unknown>),
+        ),
+      ).resolves.toBe(false);
+      await expect(
+        frame.evaluate(
+          () =>
+            '__midsceneJevSnapshot' in
+            (window as unknown as Record<string, unknown>),
+        ),
+      ).resolves.toBe(false);
     } finally {
       await browser.close();
     }

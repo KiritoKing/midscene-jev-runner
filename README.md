@@ -44,21 +44,24 @@ runner reads; `OPENROUTER_API_KEY` is not a fallback.
 
 The client sends the documented System One request body (`model`, `state`, and
 typed `questions`) and requires a provider with that compatible response
-shape. To use OpenRouter's System One endpoint, change only the API key and
-base URL; OpenRouter maps the default bare `jev-latest` model to TypeSafe:
+shape. An OpenRouter key is not interchangeable with a TypeSafe key. For the
+OpenRouter Decisions route verified by this project, configure the complete
+endpoint explicitly:
 
 ```sh
 export MIDSCENE_JEV_API_KEY=...
-export MIDSCENE_JEV_BASE_URL=https://openrouter.ai
+export MIDSCENE_JEV_BASE_URL=https://openrouter.ai/api/alpha/decisions
+export MIDSCENE_JEV_MODEL_NAME=jev-latest
 ```
 
-For another compatible gateway, set `MIDSCENE_JEV_BASE_URL` to its System One
-API root and, only if its model naming differs, set
-`MIDSCENE_JEV_MODEL_NAME`. A full endpoint ending in `/systemone` is also
-accepted. The former OpenRouter alpha Decisions endpoint is only supported when
-configured as its complete `/api/alpha/decisions` URL; it is not the default.
-Do not point this client at a Chat Completions-only endpoint: its request and
-response schema are different.
+`MIDSCENE_JEV_BASE_URL` has two supported meanings: a compatible API root, to
+which the client appends `/systemone`, or a complete endpoint ending in
+`/systemone` or `/decisions`, which is used unchanged. Do not use a provider's
+bare website origin unless it actually serves the System One resource there.
+Set `MIDSCENE_JEV_MODEL_NAME` when the provider's model naming differs. Do not
+point this client at a Chat Completions-only endpoint: its request and response
+schema are different. A successful HTML response or an incompatible JSON shape
+is reported as an endpoint-configuration error.
 
 ## Compose JEV with native Midscene nodes
 

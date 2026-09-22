@@ -96,6 +96,7 @@ const assertionBody = (
               ...(includeLocalContext && fact.localContext
                 ? { local_context: fact.localContext.slice(0, 160) }
                 : {}),
+              ...(fact.framePath?.length ? { frame_path: fact.framePath } : {}),
               name_source: fact.nameSource,
               semantic_confidence: fact.semanticConfidence,
               visible: fact.visible,
@@ -241,6 +242,7 @@ export const evaluateJevAssertion = async (
     controller.signal.throwIfAborted();
     const snapshot = await observe(page, options.prompt, {
       includeGoalTextActions: false,
+      prepareExecution: false,
     });
     controller.signal.throwIfAborted();
     const raw = await requestDecision(

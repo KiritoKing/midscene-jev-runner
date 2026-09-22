@@ -308,14 +308,3 @@ export const validChoice = (
     throw new Error('JEV selected a choice outside the offered candidates.');
   return answer.choice;
 };
-
-export const choiceProbability = (
-  answer: unknown,
-  choice: string,
-): number | undefined => {
-  if (!isRecord(answer) || !isRecord(answer.probabilities)) return undefined;
-  const value = answer.probabilities[choice];
-  return typeof value === 'number' && Number.isFinite(value)
-    ? Math.max(0, Math.min(1, value))
-    : undefined;
-};

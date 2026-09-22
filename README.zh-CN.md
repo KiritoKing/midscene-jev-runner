@@ -38,20 +38,22 @@ export MIDSCENE_JEV_API_KEY=...
 `OPENROUTER_API_KEY`。
 
 客户端发送文档规定的 System One 请求体（`model`、`state`、类型化
-`questions`），因此服务端必须兼容该请求及响应结构。使用 OpenRouter System One
-时，只需替换 API Key 和 base URL；OpenRouter 会将默认的裸模型名 `jev-latest`
-映射到 TypeSafe：
+`questions`），因此服务端必须兼容该请求及响应结构。OpenRouter Key 不能替代
+TypeSafe Key。使用本项目已验证的 OpenRouter Decisions 路径时，应显式配置完整
+端点：
 
 ```sh
 export MIDSCENE_JEV_API_KEY=...
-export MIDSCENE_JEV_BASE_URL=https://openrouter.ai
+export MIDSCENE_JEV_BASE_URL=https://openrouter.ai/api/alpha/decisions
+export MIDSCENE_JEV_MODEL_NAME=jev-latest
 ```
 
-其他兼容网关应把 `MIDSCENE_JEV_BASE_URL` 设为其 System One API 根路径；只有模型
-命名不同才设置 `MIDSCENE_JEV_MODEL_NAME`。也可直接传入以 `/systemone` 结尾的完整
-端点。旧 OpenRouter alpha Decisions 路径仅在显式配置完整的
-`/api/alpha/decisions` URL 时兼容，它不再是默认值。不要把本客户端指向仅支持 Chat
-Completions 的端点：两者请求和响应 schema 不同。
+`MIDSCENE_JEV_BASE_URL` 有两种合法语义：兼容 API 根路径（客户端会追加
+`/systemone`），或以 `/systemone`、`/decisions` 结尾的完整端点（原样使用）。不要把
+服务商网站裸域名当作 API 根路径，除非它确实在该位置提供 System One 资源。服务商
+模型命名不同时设置 `MIDSCENE_JEV_MODEL_NAME`。不要指向仅支持 Chat Completions 的
+端点：两者请求和响应 schema 不同；成功返回 HTML 或返回不兼容 JSON 结构时，客户端
+会明确报告端点配置错误。
 
 ## 与 Midscene 原生节点组合
 

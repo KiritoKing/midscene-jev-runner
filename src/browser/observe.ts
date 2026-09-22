@@ -50,6 +50,7 @@ const factKinds = new Set([
   'scroll',
   'wait',
   'dismiss',
+  'text',
 ]);
 const effects = new Set<BrowserActionEffect>(['activate', 'deactivate']);
 const termsFor = (goal: string | undefined): string[] => {
@@ -164,6 +165,7 @@ const asPath = (value: unknown, prefix: string): string[] =>
 
 export interface ObserveOptions {
   includeGoalTextActions?: boolean;
+  prepareExecution?: boolean;
 }
 
 /** Observe every accessible frame. The caller-owned Page is never navigated or mutated. */
@@ -176,16 +178,33 @@ export const observe = async (
   const evaluateSource = `(${browserSnapshotSource})(${JSON.stringify({
     terms,
     includeGoalTextActions: options.includeGoalTextActions !== false,
+    prepareExecution: options.prepareExecution !== false,
   })})`;
   const maybeFrames = page as unknown as { frames?: () => Frame[] };
   const frames =
     typeof maybeFrames.frames === 'function' ? maybeFrames.frames() : [];
-  const samples: Array<{ raw: Record<string, unknown>; path: number[] }> = [];
+  const samples: Array<{
+    raw: Record<string, unknown>;
+    path: number[];
+    frameUrl?: string;
+    frameName?: string;
+    frameDocumentId?: string;
+  }> = [];
   if (frames.length) {
     for (const frame of frames) {
       const path = framePath(frame);
       const raw: unknown = await frame.evaluate(evaluateSource);
-      if (isRecord(raw)) samples.push({ raw, path });
+      if (isRecord(raw))
+        samples.push({
+          raw,
+          path,
+          frameUrl: frame.url(),
+          frameName: frame.name(),
+          frameDocumentId:
+            typeof raw.documentToken === 'string'
+              ? raw.documentToken
+              : undefined,
+        });
     }
   } else {
     const raw: unknown = await page.evaluate(evaluateSource);
@@ -208,7 +227,7 @@ export const observe = async (
   let omittedActions = 0;
   let omittedFacts = 0;
   let textTruncated = false;
-  for (const { raw, path } of samples) {
+  for (const { raw, path, frameUrl, frameName, frameDocumentId } of samples) {
     const prefix = prefixFor(path);
     const qualify = (value: string) => (prefix ? `${prefix}:${value}` : value);
     if (Array.isArray(raw.layers))
@@ -318,6 +337,9 @@ export const observe = async (
             : {}),
           taskAlignment: relevance.taskAlignment,
           matchedGoalTerms: relevance.matchedGoalTerms,
+          framePath: path,
+          ...(frameUrl ? { frameUrl } : {}),
+          ...(frameName ? { frameName } : {}),
           visible: value.visible === true,
           actionable,
           covered: value.covered === true,
@@ -400,6 +422,9 @@ export const observe = async (
           taskAlignment: relevance.taskAlignment,
           matchedGoalTerms: relevance.matchedGoalTerms,
           framePath: path,
+          ...(frameUrl ? { frameUrl } : {}),
+          ...(frameName ? { frameName } : {}),
+          ...(frameDocumentId ? { frameDocumentId } : {}),
           ...(typeof value.selector === 'string'
             ? { selector: value.selector }
             : {}),

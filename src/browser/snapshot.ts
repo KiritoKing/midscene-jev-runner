@@ -1,7 +1,11 @@
 // This function is compiled into a self-contained browser-realm string. Do not
 // import runtime helpers into it.
 export function browserSnapshot(
-  input: { terms?: string[]; includeGoalTextActions?: boolean } = {},
+  input: {
+    terms?: string[];
+    includeGoalTextActions?: boolean;
+    prepareExecution?: boolean;
+  } = {},
 ): unknown {
   if (!document.body) return null;
   const maxActions = 1000;
@@ -20,6 +24,7 @@ export function browserSnapshot(
     next: number;
     groupIds: WeakMap<Element, number>;
     nextGroup: number;
+    documentToken: string;
   };
   type Layer = {
     element: Element;
@@ -29,19 +34,28 @@ export function browserSnapshot(
     parentId?: string;
     blocking: boolean;
   };
+  const prepareExecution = input.prepareExecution !== false;
   const win = window as unknown as Record<string, unknown>;
-  let cache = win.__midsceneJevSnapshot as Cache | undefined;
+  let cache = prepareExecution
+    ? (win.__midsceneJevSnapshot as Cache | undefined)
+    : undefined;
   if (!cache) {
     cache = {
       ids: new WeakMap(),
       next: 1,
       groupIds: new WeakMap(),
       nextGroup: 1,
+      documentToken:
+        globalThis.crypto?.randomUUID?.() ||
+        `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`,
     };
-    win.__midsceneJevSnapshot = cache;
+    if (prepareExecution) win.__midsceneJevSnapshot = cache;
   }
   cache.groupIds ??= new WeakMap();
   cache.nextGroup ??= 1;
+  cache.documentToken ??=
+    globalThis.crypto?.randomUUID?.() ||
+    `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
   const stableCache = cache;
   const id = (e: Element) => {
     let value = stableCache.ids.get(e);
@@ -480,6 +494,7 @@ export function browserSnapshot(
   let found = 0;
   let foundFacts = 0;
   const addAction = (action: Record<string, unknown>) => {
+    if (!prepareExecution) return;
     found += 1;
     if (actions.length < maxActions) actions.push(action);
   };
@@ -562,18 +577,31 @@ export function browserSnapshot(
         (actionable ? 30 : 0) +
         (where === 'dialog' ? 12 : where === 'main' ? 7 : 0),
     );
-    const guard = JSON.stringify([
-      r,
-      named.label,
+    const guard = JSON.stringify({
+      version: 2,
+      type: 'control',
+      tag: e.tagName,
+      label: named.label,
+      nameSource: named.source,
+      text: clean(e.textContent, 300),
+      ariaLabel: e.getAttribute('aria-label'),
+      ariaLabelledby: e.getAttribute('aria-labelledby'),
+      title: e.getAttribute('title'),
+      placeholder: e.getAttribute('placeholder'),
+      alt: e.getAttribute('alt'),
+      role: e.getAttribute('role'),
       current,
       checked,
       selected,
       expanded,
-      where,
-      clean(group.textContent, 1000),
-    ]);
-    e.setAttribute('data-midscene-jev-id', node);
-    e.setAttribute('data-midscene-jev-guard', guard);
+      region: where,
+      groupLabel,
+      groupText: clean(group.textContent, 1000),
+    });
+    if (prepareExecution) {
+      e.setAttribute('data-midscene-jev-id', node);
+      e.setAttribute('data-midscene-jev-guard', guard);
+    }
     const editable =
       !(
         (e instanceof HTMLInputElement || e instanceof HTMLTextAreaElement) &&
@@ -686,14 +714,36 @@ export function browserSnapshot(
     return goalTerms.some((term) => lowered.includes(term));
   };
   const hasEligibleAncestor = (e: Element) => {
+    const group = groupFor(e);
     let item = parent(e);
-    while (item) {
+    while (item && item !== parent(group)) {
       if (eligible(item)) return true;
       item = parent(item);
     }
     return false;
   };
-  for (const e of input.includeGoalTextActions === false ? [] : all) {
+  const weakActionEvidence = (e: Element): string | undefined => {
+    if (/^(P|H1|H2|H3|H4|H5|H6|LABEL|LEGEND)$/u.test(e.tagName))
+      return undefined;
+    const tabIndex = e.getAttribute('tabindex');
+    if (tabIndex !== null && Number(tabIndex) >= 0) return 'focusable-text';
+    const className = typeof e.className === 'string' ? e.className : '';
+    if (/(?:action|button|click|link|operation)/iu.test(className))
+      return 'action-style';
+    const cell = e.closest('td,th,[role="cell"],[role="gridcell"]');
+    const row = cell?.closest('tr,[role="row"]');
+    if (cell && row) {
+      const cells = Array.from(
+        row.querySelectorAll(
+          ':scope > td,:scope > th,:scope > [role="cell"],:scope > [role="gridcell"]',
+        ),
+      ).filter((item) => clean(item.textContent).length > 0);
+      if (cells.at(-1) === cell) return 'structured-action-slot';
+    }
+    if (e.closest('[role="menu"],[role="listbox"]')) return 'layer-option-slot';
+    return undefined;
+  };
+  for (const e of all) {
     if (eligible(e) || hasEligibleAncestor(e)) continue;
     if (
       /^(HTML|BODY|SCRIPT|STYLE|TEMPLATE|NOSCRIPT)$/u.test(e.tagName) ||
@@ -716,7 +766,14 @@ export function browserSnapshot(
       item.matches('[aria-disabled="true"],:disabled'),
     );
     const covered = !uncovered(e);
-    const actionable = inTop && !disabled && !covered;
+    const evidence = weakActionEvidence(e);
+    const actionable =
+      prepareExecution &&
+      input.includeGoalTextActions !== false &&
+      Boolean(evidence) &&
+      inTop &&
+      !disabled &&
+      !covered;
     const node = id(e);
     const group = groupFor(e);
     const groupId = groupRef(group);
@@ -731,29 +788,46 @@ export function browserSnapshot(
     );
     const context = localContext(e);
     const layerPath = path(e);
-    const guard = JSON.stringify([
-      'text-action',
+    const guard = JSON.stringify({
+      version: 2,
+      type: 'text-action',
+      tag: e.tagName,
       label,
-      where,
-      clean(group.textContent, 1000),
-    ]);
-    e.setAttribute('data-midscene-jev-id', node);
-    e.setAttribute('data-midscene-jev-guard', guard);
+      nameSource: 'content',
+      text: clean(e.textContent, 300),
+      ariaLabel: e.getAttribute('aria-label'),
+      ariaLabelledby: e.getAttribute('aria-labelledby'),
+      title: e.getAttribute('title'),
+      placeholder: e.getAttribute('placeholder'),
+      alt: e.getAttribute('alt'),
+      role: e.getAttribute('role'),
+      current: '',
+      checked: null,
+      selected: null,
+      expanded: e.getAttribute('aria-expanded'),
+      region: where,
+      groupLabel,
+      groupText: clean(group.textContent, 1000),
+    });
+    if (actionable) {
+      e.setAttribute('data-midscene-jev-id', node);
+      e.setAttribute('data-midscene-jev-guard', guard);
+    }
     foundFacts += 1;
     if (facts.length < maxFacts)
       facts.push({
         id: node,
         label,
-        role: 'text-action',
-        kind: 'click',
+        role: actionable ? 'text-action' : 'text',
+        kind: actionable ? 'click' : 'text',
         region: where,
         groupId,
         ...(groupLabel ? { groupLabel } : {}),
         layerPath,
         ...(context ? { localContext: context } : {}),
         nameSource: 'content',
-        semanticConfidence: 0.35,
-        clickabilityEvidence: 'goal-relevant-text',
+        semanticConfidence: actionable ? 0.35 : 0.6,
+        clickabilityEvidence: evidence || 'text-only',
         visible: true,
         actionable,
         covered,
@@ -776,7 +850,7 @@ export function browserSnapshot(
       ...(context ? { localContext: context } : {}),
       nameSource: 'content',
       semanticConfidence: 0.35,
-      clickabilityEvidence: 'goal-relevant-text',
+      clickabilityEvidence: evidence,
       selector: selector(e),
       score: 36 + (where === 'dialog' ? 12 : where === 'main' ? 7 : 0),
       signature: sign('click', 'text-action', label, where, groupSignature),
@@ -1083,6 +1157,7 @@ export function browserSnapshot(
     ]),
   ]);
   return {
+    documentToken: cache.documentToken,
     url: location.href,
     title: document.title,
     text,

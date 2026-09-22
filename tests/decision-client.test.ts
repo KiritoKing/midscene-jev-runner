@@ -49,9 +49,9 @@ describe('requestDecision', () => {
     );
   });
 
-  it('uses OpenRouter System One when its API root replaces the base URL', async () => {
+  it('appends System One to a compatible provider API root', async () => {
     vi.stubEnv('MIDSCENE_JEV_API_KEY', 'runner-key');
-    vi.stubEnv('MIDSCENE_JEV_BASE_URL', 'https://openrouter.ai');
+    vi.stubEnv('MIDSCENE_JEV_BASE_URL', 'https://jev.example.test/v2');
     const fetch = vi.fn<typeof globalThis.fetch>(async () =>
       response({ answers: {} }),
     );
@@ -63,7 +63,7 @@ describe('requestDecision', () => {
     );
 
     expect(fetch).toHaveBeenCalledWith(
-      'https://openrouter.ai/systemone',
+      'https://jev.example.test/v2/systemone',
       expect.any(Object),
     );
   });
@@ -97,5 +97,24 @@ describe('requestDecision', () => {
     await requestDecision({}, new AbortController().signal, { fetch });
 
     expect(fetch).toHaveBeenCalledTimes(2);
+  });
+
+  it('diagnoses a successful non-JSON response with its content type and endpoint shape', async () => {
+    vi.stubEnv('MIDSCENE_JEV_API_KEY', 'runner-key');
+    vi.stubEnv('MIDSCENE_JEV_BASE_URL', 'https://openrouter.ai');
+    const fetch = vi.fn<typeof globalThis.fetch>(
+      async () =>
+        new Response('<html><body>OpenRouter</body></html>', {
+          status: 200,
+          headers: { 'content-type': 'text/html; charset=utf-8' },
+        }),
+    );
+
+    await expect(
+      requestDecision({}, new AbortController().signal, { fetch }),
+    ).rejects.toThrow(/text\/html|content-type/i);
+    await expect(
+      requestDecision({}, new AbortController().signal, { fetch }),
+    ).rejects.toThrow(/systemone|decisions/i);
   });
 });

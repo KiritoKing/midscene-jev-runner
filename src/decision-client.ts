@@ -1,6 +1,6 @@
 import { DEFAULT_JEV_BASE_URL, DEFAULT_REQUEST_TIMEOUT_MS } from './constants';
 import { requestJson } from './http';
-import { endpoint, waitForAbortable } from './utils';
+import { endpoint, isRecord, waitForAbortable } from './utils';
 
 export interface JevDecisionClientOptions {
   fetch?: typeof globalThis.fetch;
@@ -49,7 +49,7 @@ export const requestDecision = async (
 
   for (let attempt = 1; attempt <= 2; attempt += 1) {
     try {
-      return await requestJson(
+      const result = await requestJson(
         fetchImpl,
         systemOneEndpoint(baseUrl),
         {
@@ -63,6 +63,11 @@ export const requestDecision = async (
         signal,
         requestTimeoutMs,
       );
+      if (!isRecord(result) || !isRecord(result.answers))
+        throw new Error(
+          'JEV endpoint returned an incompatible response shape. MIDSCENE_JEV_BASE_URL must resolve to a compatible /systemone or /decisions endpoint.',
+        );
+      return result;
     } catch (error) {
       if (attempt === 2 || !isTransientDecisionError(error)) throw error;
       await waitForAbortable(250, signal);
