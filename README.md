@@ -94,6 +94,13 @@ Starting with `0.1.1`, the runner checks completion both after an action and
 before the next model decision, preventing extra operations after an
 asynchronous page transition has completed.
 
+Starting with `0.1.2`, observations are site-agnostic and workflow-aware. The
+runner exposes accessible controls, field state, visible workflow steps,
+validation feedback, and active dialogs without relying on application-specific
+selectors. It also suppresses repeated semantic failures across incidental DOM
+rerenders, rechecks targets for occlusion immediately before execution, and can
+dismiss unrelated active layers without taking ownership of the `Page`.
+
 ## Direct use
 
 ```ts
