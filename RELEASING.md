@@ -36,3 +36,19 @@ git commit -m "chore(release): prepare vX.Y.Z"
 git push
 gh release create vX.Y.Z --target main --generate-notes
 ```
+
+## Publish a prerelease
+
+Use an explicit SemVer prerelease version and publish the GitHub Release as a
+prerelease. The workflow assigns prereleases to the npm `beta` dist-tag, so the
+stable `latest` tag is unchanged.
+
+```sh
+pnpm version X.Y.Z-beta.N --no-git-tag-version
+RELEASE_TAG=vX.Y.Z-beta.N pnpm release:verify
+pnpm check
+git add package.json
+git commit -m "chore(release): prepare vX.Y.Z-beta.N"
+git push
+gh release create vX.Y.Z-beta.N --target <pushed-branch> --prerelease --generate-notes
+```
