@@ -90,6 +90,7 @@ describe('hybrid browser context', () => {
       facts: [],
       layers: [],
       alerts: [],
+      validationIssues: [],
       workflowSteps: [],
       loading: false,
       omittedActions: 0,
@@ -104,7 +105,7 @@ describe('hybrid browser context', () => {
           target: 'shipping-trigger',
           label: 'Shipping method: Priority',
           outcome: 'progressed',
-          snapshotMarker: snapshot.marker,
+          fromProgressMarker: snapshot.progressMarker,
           signature: repeatedSignature,
           recoveryEpoch: 1,
         },
@@ -495,5 +496,340 @@ describe('hybrid browser context', () => {
       await runJev(page, { goal: 'Open account preferences', fetch });
       expect(fetch).toHaveBeenCalledTimes(1);
     });
+  });
+
+  it('models selected checkbox options as deactivation and hides them unless removal is requested', async () => {
+    await withPage(async (page) => {
+      await page.setContent(`
+        <main>
+          <fieldset><legend>Notification channels</legend>
+            <label><input type="checkbox" checked />Existing email</label>
+            <label><input type="checkbox" />New mobile alert</label>
+            <div role="checkbox" aria-checked="true" tabindex="0">Existing custom channel</div>
+            <div role="checkbox" data-state="checked" tabindex="0">Existing data-state channel</div>
+            <button type="button" aria-pressed="true">Existing pressed channel</button>
+          </fieldset>
+        </main>
+      `);
+
+      const snapshot = await observe(
+        page,
+        'Keep current selections and select New mobile alert',
+      );
+      expect(snapshot.actions).toContainEqual(
+        expect.objectContaining({
+          label: 'Existing email',
+          checked: 'true',
+          effect: 'deactivate',
+        }),
+      );
+      expect(snapshot.actions).toContainEqual(
+        expect.objectContaining({
+          label: 'New mobile alert',
+          checked: 'false',
+          effect: 'activate',
+        }),
+      );
+      expect(snapshot.actions).toContainEqual(
+        expect.objectContaining({
+          label: 'Existing custom channel',
+          effect: 'deactivate',
+        }),
+      );
+      expect(snapshot.actions).toContainEqual(
+        expect.objectContaining({
+          label: 'Existing data-state channel',
+          effect: 'deactivate',
+        }),
+      );
+      expect(snapshot.actions).toContainEqual(
+        expect.objectContaining({
+          label: 'Existing pressed channel',
+          effect: 'deactivate',
+        }),
+      );
+
+      const preserveRequest = createDecisionRequest(
+        snapshot,
+        'Keep current selections and select New mobile alert',
+        [],
+      );
+      const preserveLabels = Object.values(
+        preserveRequest.targets.CLICK ?? {},
+      ).map((action) => action.label);
+      expect(preserveLabels).toContain('New mobile alert');
+      expect(preserveLabels).not.toContain('Existing email');
+      expect(preserveLabels).not.toContain('Existing custom channel');
+      expect(preserveLabels).not.toContain('Existing data-state channel');
+      expect(preserveLabels).not.toContain('Existing pressed channel');
+
+      const removeRequest = createDecisionRequest(
+        snapshot,
+        'Remove Existing email from the selected channels',
+        [],
+      );
+      expect(Object.values(removeRequest.targets.CLICK ?? {})).toContainEqual(
+        expect.objectContaining({
+          label: 'Existing email',
+          effect: 'deactivate',
+        }),
+      );
+
+      const fieldRemovalRequest = createDecisionRequest(
+        snapshot,
+        'Remove the selected values from Notification channels',
+        [],
+      );
+      expect(Object.values(fieldRemovalRequest.targets.CLICK ?? {})).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            label: 'Existing data-state channel',
+            effect: 'deactivate',
+          }),
+          expect.objectContaining({
+            label: 'Existing pressed channel',
+            effect: 'deactivate',
+          }),
+        ]),
+      );
+
+      await page.locator('input').first().uncheck();
+      const removedSnapshot = await observe(
+        page,
+        'Remove Existing email from the selected channels',
+      );
+      const removedRequest = createDecisionRequest(
+        removedSnapshot,
+        'Remove Existing email from the selected channels',
+        [],
+      );
+      expect(
+        Object.values(removedRequest.targets.CLICK ?? {}),
+      ).not.toContainEqual(
+        expect.objectContaining({ label: 'Existing email' }),
+      );
+    });
+  });
+
+  it('counts an explicitly requested toggle state only after the observed state matches', async () => {
+    await withPage(async (page) => {
+      configureJev();
+      await page.setContent(
+        '<main><label><input type="checkbox" />Email notifications</label></main>',
+      );
+      let decisions = 0;
+      const fetch = vi.fn<typeof globalThis.fetch>(async (_input, init) => {
+        const request = JSON.parse(String(init?.body)) as Record<
+          string,
+          unknown
+        >;
+        decisions += 1;
+        if (decisions === 1)
+          return response({
+            answers: {
+              operation: { type: 'choice', choice: 'CLICK' },
+              click_target: {
+                type: 'choice',
+                choice: targetChoice(request, 'CLICK', 'Email notifications'),
+              },
+            },
+          });
+        const state = request.state as Record<string, unknown>;
+        expect(state.recent_actions).toEqual([
+          expect.objectContaining({ outcome: 'progressed' }),
+        ]);
+        return response({
+          answers: { operation: { type: 'choice', choice: 'DONE' } },
+        });
+      });
+
+      const result = await runJev(page, {
+        goal: 'Select Email notifications',
+        fetch,
+      });
+      expect(result.steps).toBe(2);
+      expect(await page.locator('input').isChecked()).toBe(true);
+    });
+  });
+
+  it('binds an ordinary required sibling to its field and focuses the next decision on that field', async () => {
+    await withPage(async (page) => {
+      await page.setContent(`
+        <main>
+          <div class="form-item">
+            <label for="account-identifiers">Account identifiers</label>
+            <textarea id="account-identifiers" aria-describedby="account-error"></textarea>
+            <label><input type="checkbox" />Use generated identifiers</label>
+            <span id="account-error" class="error-message">此字段必填</span>
+          </div>
+          <div class="form-item">
+            <label><input type="checkbox" />Unrelated optional benefit</label>
+          </div>
+          <div class="form-item">
+            <label for="department-code">Department code</label>
+            <input id="department-code" />
+            <span>This field is required</span>
+          </div>
+          <div class="form-item">
+            <label for="display-mode">Display mode</label>
+            <select id="display-mode"><option>Compact</option></select>
+            <span>请选择适合你的显示方式</span>
+          </div>
+        </main>
+      `);
+
+      const snapshot = await observe(page, 'Complete all required fields');
+      expect(snapshot.validationIssues).toContainEqual(
+        expect.objectContaining({
+          field: 'Account identifiers',
+          message: '此字段必填',
+          required: true,
+        }),
+      );
+      expect(snapshot.validationIssues).toContainEqual(
+        expect.objectContaining({
+          field: 'Department code',
+          message: 'This field is required',
+          required: true,
+        }),
+      );
+
+      const request = createDecisionRequest(
+        snapshot,
+        'Complete all required fields',
+        [],
+      );
+      expect(Object.values(request.targets.TYPE_TEXT ?? {})).toContainEqual(
+        expect.objectContaining({ label: 'Account identifiers' }),
+      );
+      expect(Object.values(request.targets.CLICK ?? {})).not.toContainEqual(
+        expect.objectContaining({ label: 'Use generated identifiers' }),
+      );
+      expect(Object.values(request.targets.CLICK ?? {})).not.toContainEqual(
+        expect.objectContaining({ label: 'Unrelated optional benefit' }),
+      );
+      expect(snapshot.validationIssues).not.toContainEqual(
+        expect.objectContaining({ field: 'Display mode' }),
+      );
+      expect(request.body.state.validation_issues).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            field: 'Account identifiers',
+            required: true,
+          }),
+        ]),
+      );
+    });
+  });
+
+  it('keeps the complete decision request below the provider byte budget without duplicating elements', async () => {
+    await withPage(async (page) => {
+      await page.setContent(`
+        <main><form id="large-form"></form></main>
+        <script>
+          const form = document.querySelector('#large-form');
+          for (let index = 0; index < 180; index += 1) {
+            const row = document.createElement('div');
+            row.className = 'form-item';
+            row.innerHTML = '<label>Configuration field ' + index +
+              '<input aria-label="Configuration field ' + index + '" /></label>' +
+              '<span>' + 'context '.repeat(30) + '</span>';
+            form.append(row);
+          }
+        </script>
+      `);
+
+      const snapshot = await observe(page, 'Fill Configuration field 179');
+      const request = createDecisionRequest(
+        snapshot,
+        'Fill Configuration field 179',
+        [],
+      );
+      const serialized = JSON.stringify(request.body);
+      const state = request.body.state as Record<string, unknown>;
+      expect(
+        new TextEncoder().encode(serialized).byteLength,
+      ).toBeLessThanOrEqual(40_000);
+      expect(state).not.toHaveProperty('elements');
+      expect(state.facts).toEqual(expect.any(Array));
+      expect((state.facts as unknown[]).length).toBeLessThanOrEqual(24);
+      expect(serialized).not.toMatch(/group:[^"}]*css=/u);
+    });
+  });
+
+  it('suppresses an A to B to A semantic cycle even when each DOM marker is different', async () => {
+    configureJev();
+    const action = {
+      id: 'setting-toggle',
+      node: '1',
+      guard: 'stable',
+      kind: 'click' as const,
+      label: 'Feature setting',
+      role: 'button',
+      region: 'main' as const,
+      signature: 'click|main|button|feature setting',
+      groupId: 'group:1',
+    };
+    const raw = (marker: string, progressMarker: string) => ({
+      url: 'https://example.test/settings',
+      title: 'Settings',
+      text: 'Feature setting',
+      marker,
+      progressMarker,
+      alerts: [],
+      validations: [],
+      facts: [],
+      layers: [],
+      workflowSteps: [],
+      actions: [action],
+    });
+    const snapshots = [
+      raw('render-a-1', 'semantic-a'),
+      raw('render-b', 'semantic-b'),
+      raw('render-a-2', 'semantic-a'),
+    ];
+    const locator = {
+      first: () => locator,
+      click: vi.fn(async () => undefined),
+      evaluate: vi.fn(async () => true),
+    };
+    const page = {
+      evaluate: vi.fn(async (fn: { name?: string }) =>
+        fn.name === 'browserSnapshot'
+          ? (snapshots.shift() ?? raw('render-a-last', 'semantic-a'))
+          : true,
+      ),
+      locator: vi.fn(() => locator),
+      keyboard: { press: vi.fn(async () => undefined) },
+    } as unknown as Page;
+    let decisions = 0;
+    const fetch = vi.fn<typeof globalThis.fetch>(async (_input, init) => {
+      const request = JSON.parse(String(init?.body)) as Record<string, unknown>;
+      decisions += 1;
+      if (decisions <= 2)
+        return response({
+          answers: {
+            operation: { type: 'choice', choice: 'CLICK' },
+            click_target: {
+              type: 'choice',
+              choice: targetChoice(request, 'CLICK', 'Feature setting'),
+            },
+          },
+        });
+      expect(
+        (request.questions as Record<string, unknown>).click_target,
+      ).toBeUndefined();
+      return response({
+        answers: { operation: { type: 'choice', choice: 'DONE' } },
+      });
+    });
+
+    const result = await runJev(page, {
+      goal: 'Activate the feature setting and continue',
+      fetch,
+      maxSteps: 6,
+    });
+    expect(result.steps).toBe(3);
+    expect(locator.click).toHaveBeenCalledTimes(2);
   });
 });

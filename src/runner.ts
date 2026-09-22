@@ -12,7 +12,13 @@ import {
 import { createDecisionRequest, validChoice } from './decision';
 import { JevRunError } from './errors';
 import { requestJson } from './http';
-import type { JevRecentAction, JevResponse } from './internal-types';
+import type {
+  BrowserAction,
+  BrowserSnapshot,
+  BrowserValidationIssue,
+  JevRecentAction,
+  JevResponse,
+} from './internal-types';
 import { generateText } from './text-model';
 import type { JevOperation, JevRunOptions, JevRunResult } from './types';
 import { endpoint, tokenCount, waitForAbortable } from './utils';
@@ -23,6 +29,69 @@ const isTransientDecisionError = (error: unknown): boolean =>
     /JEV request failed with HTTP (?:408|429|500|502|503|504)\./u.test(
       error.message,
     ));
+
+const actionEffectAchieved = (
+  action: BrowserAction,
+  snapshot: BrowserSnapshot,
+): boolean | undefined => {
+  if (!action.effect) return undefined;
+  const fact = snapshot.facts.find((item) => item.id === action.id);
+  const value = fact?.checked ?? fact?.selected;
+  if (value === undefined) return undefined;
+  const active = ['true', 'checked', 'selected', 'on'].includes(value);
+  return action.effect === 'activate' ? active : !active;
+};
+
+const actionEffectRequested = (
+  action: BrowserAction,
+  goal: string,
+): boolean => {
+  if (!action.effect) return false;
+  const normalizedGoal = goal.replace(/\s+/gu, ' ').trim().toLocaleLowerCase();
+  const label = action.label.replace(/\s+/gu, ' ').trim().toLocaleLowerCase();
+  if (label.length > 1 && normalizedGoal.includes(label)) return true;
+  return (
+    /(?:\ball\b|全部|所有)/iu.test(normalizedGoal) &&
+    /(?:\bselect\b|\bcheck\b|\benable\b|\bactivate\b|选择|勾选|启用|开启)/iu.test(
+      normalizedGoal,
+    )
+  );
+};
+
+const normalized = (value: string | undefined): string =>
+  (value || '').replace(/\s+/gu, ' ').trim().toLocaleLowerCase();
+const actionGroupKey = (action: BrowserAction): string | undefined =>
+  normalized(action.groupLabel) || action.groupId;
+
+const actionAddressesValidation = (
+  action: BrowserAction,
+  issue: BrowserValidationIssue,
+): boolean => {
+  if (
+    issue.controlId &&
+    (action.id === issue.controlId ||
+      action.id.startsWith(`${issue.controlId}:`))
+  )
+    return true;
+  const field = normalized(issue.field);
+  const label = normalized(action.label);
+  if (field && (label.includes(field) || field.includes(label))) return true;
+  return Boolean(
+    !issue.controlId && issue.groupId && action.groupId === issue.groupId,
+  );
+};
+
+const validationFingerprint = (snapshot: BrowserSnapshot): string =>
+  JSON.stringify(
+    snapshot.validationIssues
+      .map((issue) => [
+        normalized(issue.field) || normalized(issue.message),
+        issue.required,
+      ])
+      .sort((left, right) =>
+        JSON.stringify(left).localeCompare(JSON.stringify(right)),
+      ),
+  );
 
 /** Run JEV against a caller-owned Playwright Page. */
 export const runJev = async (
@@ -47,6 +116,7 @@ export const runJev = async (
     options.requestTimeoutMs ?? DEFAULT_REQUEST_TIMEOUT_MS;
   const maxNoProgressSteps =
     options.maxNoProgressSteps ?? DEFAULT_MAX_NO_PROGRESS_STEPS;
+  const maxTrackedProgressStates = Math.max(64, Math.ceil(maxSteps) + 1);
   if (
     ![maxSteps, maxTaskMs, requestTimeoutMs, maxNoProgressSteps].every(
       (value) => Number.isFinite(value) && value > 0,
@@ -89,7 +159,22 @@ export const runJev = async (
   try {
     let snapshot = await observe(page, options.goal);
     let noProgressSteps = 0;
+    let validationDetourSteps = 0;
     let recoveryEpoch = 0;
+    const visitedProgressStates = new Set<string>([snapshot.progressMarker]);
+    const progressStateOrder = [snapshot.progressMarker];
+    const rememberProgressState = (marker: string): boolean => {
+      const repeated = visitedProgressStates.has(marker);
+      if (!repeated) {
+        visitedProgressStates.add(marker);
+        progressStateOrder.push(marker);
+        if (progressStateOrder.length > maxTrackedProgressStates) {
+          const oldest = progressStateOrder.shift();
+          if (oldest) visitedProgressStates.delete(oldest);
+        }
+      }
+      return repeated;
+    };
     const recentActions: JevRecentAction[] = [];
     const remember = (action: JevRecentAction) => {
       recentActions.push(action);
@@ -179,11 +264,12 @@ export const runJev = async (
         remember({
           operation,
           outcome: 'rejected',
-          snapshotMarker: snapshot.marker,
+          fromProgressMarker: snapshot.progressMarker,
           signature: 'DONE',
           recoveryEpoch,
         });
         snapshot = await observe(page, options.goal);
+        rememberProgressState(snapshot.progressMarker);
         noProgressSteps += 1;
         if (noProgressSteps >= maxNoProgressSteps)
           throw new Error(
@@ -208,11 +294,12 @@ export const runJev = async (
         remember({
           operation,
           outcome: 'rejected',
-          snapshotMarker: snapshot.marker,
+          fromProgressMarker: snapshot.progressMarker,
           signature: 'BLOCKED',
           recoveryEpoch,
         });
         snapshot = await observe(page, options.goal);
+        rememberProgressState(snapshot.progressMarker);
         noProgressSteps += 1;
         if (noProgressSteps >= maxNoProgressSteps)
           throw new Error(
@@ -222,9 +309,11 @@ export const runJev = async (
       }
       if (!action) throw new Error('JEV selected an action without a target.');
 
-      const previousMarker = snapshot.marker;
       const previousProgressMarker = snapshot.progressMarker;
-      const previousAlerts = new Set(snapshot.alerts);
+      const previousValidationFingerprint = validationFingerprint(snapshot);
+      const addressedValidation = snapshot.validationIssues.some((issue) =>
+        actionAddressesValidation(action, issue),
+      );
       let fresh: boolean;
       try {
         let text: string | undefined;
@@ -252,9 +341,10 @@ export const runJev = async (
           label: action.label,
           outcome: 'failed',
           error: message,
-          snapshotMarker: previousMarker,
+          fromProgressMarker: previousProgressMarker,
           signature: action.signature || `${operation}:${target || action.id}`,
           recoveryEpoch,
+          ...(actionGroupKey(action) ? { group: actionGroupKey(action) } : {}),
         });
         options.observer?.({
           type: 'action',
@@ -267,6 +357,7 @@ export const runJev = async (
           error: message,
         });
         snapshot = await observe(page, options.goal);
+        rememberProgressState(snapshot.progressMarker);
         noProgressSteps += 1;
         if (noProgressSteps >= maxNoProgressSteps)
           throw new Error(
@@ -281,9 +372,10 @@ export const runJev = async (
           target,
           label: action.label,
           outcome: 'stale',
-          snapshotMarker: previousMarker,
+          fromProgressMarker: previousProgressMarker,
           signature: action.signature || `${operation}:${target || action.id}`,
           recoveryEpoch,
+          ...(actionGroupKey(action) ? { group: actionGroupKey(action) } : {}),
         });
         options.observer?.({
           type: 'action',
@@ -295,6 +387,7 @@ export const runJev = async (
           progressed: false,
         });
         snapshot = await observe(page, options.goal);
+        rememberProgressState(snapshot.progressMarker);
         noProgressSteps += 1;
         if (noProgressSteps >= maxNoProgressSteps)
           throw new Error(
@@ -303,12 +396,29 @@ export const runJev = async (
         continue;
       }
       snapshot = await observe(page, options.goal);
-      const feedback = snapshot.alerts.filter(
-        (message) => !previousAlerts.has(message),
-      );
+      const repeatedState = rememberProgressState(snapshot.progressMarker);
+      const feedback = snapshot.alerts;
+      const currentValidationFingerprint = validationFingerprint(snapshot);
+      const unresolvedValidationDetour =
+        previousValidationFingerprint !== '[]' &&
+        previousValidationFingerprint === currentValidationFingerprint &&
+        !addressedValidation;
+      validationDetourSteps = unresolvedValidationDetour
+        ? validationDetourSteps + 1
+        : 0;
       const markerProgressed =
         snapshot.progressMarker !== previousProgressMarker;
-      const progressed = markerProgressed && feedback.length === 0;
+      const effectAchieved = actionEffectAchieved(action, snapshot);
+      const effectMismatch = effectAchieved === false;
+      const requestedStateProgress =
+        effectAchieved === true && actionEffectRequested(action, options.goal);
+      const progressed =
+        feedback.length === 0 &&
+        !effectMismatch &&
+        ((markerProgressed && !repeatedState) || requestedStateProgress);
+      const effectError = effectMismatch
+        ? `The target did not reach the requested ${action.effect} state.`
+        : undefined;
       remember({
         operation,
         target,
@@ -319,10 +429,13 @@ export const runJev = async (
             : progressed
               ? 'progressed'
               : 'no-progress',
-        snapshotMarker: previousMarker,
+        fromProgressMarker: previousProgressMarker,
+        toProgressMarker: snapshot.progressMarker,
         signature: action.signature || `${operation}:${target || action.id}`,
         recoveryEpoch,
+        ...(actionGroupKey(action) ? { group: actionGroupKey(action) } : {}),
         ...(feedback.length > 0 ? { feedback } : {}),
+        ...(effectError ? { error: effectError } : {}),
       });
       options.observer?.({
         type: 'action',
@@ -332,6 +445,7 @@ export const runJev = async (
         label: action.label,
         stale: false,
         progressed,
+        ...(effectError ? { error: effectError } : {}),
       });
       if (
         options.verifyCompletion &&
@@ -341,6 +455,10 @@ export const runJev = async (
         result.completionVerified = true;
         return finish();
       }
+      if (validationDetourSteps >= 2)
+        throw new Error(
+          'JEV repeatedly acted outside the field with unresolved validation.',
+        );
       if (progressed) recoveryEpoch += 1;
       noProgressSteps = progressed ? 0 : noProgressSteps + 1;
       if (noProgressSteps >= maxNoProgressSteps)

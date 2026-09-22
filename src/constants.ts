@@ -13,5 +13,7 @@ export const MAX_RECENT_ACTIONS = 10;
 // The decision API sees a globally ranked shortlist, never a per-operation
 // multiplication of candidates.
 export const MAX_DECISION_CANDIDATES = 24;
-export const MAX_DECISION_FACTS = 60;
+export const MIN_DECISION_CANDIDATES = 8;
+export const MAX_DECISION_FACTS = 24;
 export const MAX_DECISION_LAYERS = 20;
+export const MAX_DECISION_REQUEST_BYTES = 40_000;

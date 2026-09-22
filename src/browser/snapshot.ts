@@ -5,7 +5,12 @@ export function browserSnapshot(): unknown {
   const maxFacts = 1000;
   const maxLabel = 300;
   const maxText = 6000;
-  type Cache = { ids: WeakMap<Element, number>; next: number };
+  type Cache = {
+    ids: WeakMap<Element, number>;
+    next: number;
+    groupIds: WeakMap<Element, number>;
+    nextGroup: number;
+  };
   type Layer = {
     element: Element;
     id: string;
@@ -17,9 +22,16 @@ export function browserSnapshot(): unknown {
   const win = window as unknown as Record<string, unknown>;
   let cache = win.__midsceneJevSnapshot as Cache | undefined;
   if (!cache) {
-    cache = { ids: new WeakMap(), next: 1 };
+    cache = {
+      ids: new WeakMap(),
+      next: 1,
+      groupIds: new WeakMap(),
+      nextGroup: 1,
+    };
     win.__midsceneJevSnapshot = cache;
   }
+  cache.groupIds ??= new WeakMap();
+  cache.nextGroup ??= 1;
   const stableCache = cache;
   const id = (e: Element) => {
     let value = stableCache.ids.get(e);
@@ -28,6 +40,14 @@ export function browserSnapshot(): unknown {
       stableCache.ids.set(e, value);
     }
     return String(value);
+  };
+  const groupRef = (e: Element) => {
+    let value = stableCache.groupIds.get(e);
+    if (!value) {
+      value = stableCache.nextGroup++;
+      stableCache.groupIds.set(e, value);
+    }
+    return `group:${value}`;
   };
   const clean = (value: string | null | undefined, length = maxLabel) =>
     (value || '').replace(/\s+/gu, ' ').trim().slice(0, length);
@@ -172,7 +192,7 @@ export function browserSnapshot(): unknown {
   const localContext = (e: Element): string | undefined => {
     const container =
       e.closest(
-        'form,fieldset,section,article,[role="row"],[class*="card" i]',
+        '[role="group"],fieldset,[class*="form-item" i],[class*="form-field" i],li,tr,[role="row"],[class*="card" i],section,article,form',
       ) || parent(e);
     if (!container) return undefined;
     const heading = container.querySelector(
@@ -345,6 +365,68 @@ export function browserSnapshot(): unknown {
       : e.getAttribute('contenteditable') === 'true'
         ? e.textContent || ''
         : '';
+  const stateControl = (e: Element): Element => {
+    if (
+      (e instanceof HTMLInputElement &&
+        ['checkbox', 'radio'].includes(e.type)) ||
+      e instanceof HTMLOptionElement ||
+      [
+        'checkbox',
+        'radio',
+        'switch',
+        'option',
+        'menuitemcheckbox',
+        'menuitemradio',
+      ].includes(role(e))
+    )
+      return e;
+    if (
+      !e.matches(
+        'label,[role="option"],[role="menuitemcheckbox"],[role="menuitemradio"],[class*="checkbox" i],[class*="radio" i],[class*="switch" i]',
+      )
+    )
+      return e;
+    return (
+      e.querySelector(
+        'input[type="checkbox"],input[type="radio"],[role="checkbox"],[role="radio"],[role="switch"],[role="option"],[role="menuitemcheckbox"],[role="menuitemradio"]',
+      ) || e
+    );
+  };
+  const presentState = (e: Element, attribute: string): string | null =>
+    e.hasAttribute(attribute) ? e.getAttribute(attribute) || 'true' : null;
+  const checkedState = (e: Element): string | null => {
+    if (e instanceof HTMLInputElement && ['checkbox', 'radio'].includes(e.type))
+      return String(e.checked);
+    const aria =
+      e.getAttribute('aria-checked') || e.getAttribute('aria-pressed');
+    if (aria !== null) return aria;
+    const data = presentState(e, 'data-checked');
+    if (data !== null) return data;
+    return [
+      'checkbox',
+      'radio',
+      'switch',
+      'menuitemcheckbox',
+      'menuitemradio',
+    ].includes(role(e))
+      ? e.getAttribute('data-state')
+      : null;
+  };
+  const selectedState = (e: Element): string | null => {
+    if (e instanceof HTMLOptionElement) return String(e.selected);
+    const aria = e.getAttribute('aria-selected');
+    if (aria !== null) return aria;
+    const data = presentState(e, 'data-selected');
+    if (data !== null) return data;
+    return ['option', 'menuitemradio'].includes(role(e))
+      ? e.getAttribute('data-state')
+      : null;
+  };
+  const activeState = (value: string | null): boolean =>
+    value !== null &&
+    ['true', 'checked', 'selected', 'on', 'active'].includes(
+      value.toLocaleLowerCase(),
+    );
   const facts: Array<Record<string, unknown>> = [];
   const actions: Array<Record<string, unknown>> = [];
   let found = 0;
@@ -352,8 +434,15 @@ export function browserSnapshot(): unknown {
     found += 1;
     if (actions.length < maxActions) actions.push(action);
   };
-  const sign = (kind: string, r: string, label: string, where: string) =>
-    `${kind}|${where}|${r}|${clean(label).toLocaleLowerCase()}`;
+  const sign = (
+    kind: string,
+    r: string,
+    label: string,
+    where: string,
+    group: string,
+    effect?: string,
+  ) =>
+    `${kind}|${where}|${group}|${r}|${clean(label).toLocaleLowerCase()}${effect ? `|${effect}` : ''}`;
   for (const e of all) {
     if (
       !eligible(e) ||
@@ -365,20 +454,31 @@ export function browserSnapshot(): unknown {
     const node = id(e);
     const named = name(e);
     const nativeRole = role(e);
+    const state = stateControl(e);
+    const stateRole = role(state);
     const r =
-      getComputedStyle(e).cursor === 'pointer' && !interactive.has(nativeRole)
-        ? 'button'
-        : nativeRole;
+      state !== e &&
+      [
+        'checkbox',
+        'radio',
+        'switch',
+        'option',
+        'menuitemcheckbox',
+        'menuitemradio',
+      ].includes(stateRole)
+        ? stateRole
+        : getComputedStyle(e).cursor === 'pointer' &&
+            !interactive.has(nativeRole)
+          ? 'button'
+          : nativeRole;
     const where = region(e);
     const current = value(e).slice(0, 500);
-    const checked =
-      e instanceof HTMLInputElement && ['checkbox', 'radio'].includes(e.type)
-        ? String(e.checked)
-        : e.getAttribute('aria-checked');
-    const selected = e.getAttribute('aria-selected');
+    const checked = checkedState(state);
+    const selected = selectedState(state);
     const expanded = e.getAttribute('aria-expanded');
     const disabled =
       e.matches(':disabled,[aria-disabled="true"]') ||
+      state.matches(':disabled,[aria-disabled="true"]') ||
       e.getAttribute('aria-readonly') === 'true';
     const isVisible = visible(e) && viewport(e);
     const covered = isVisible && !uncovered(e);
@@ -389,12 +489,30 @@ export function browserSnapshot(): unknown {
         activeLayer.element.contains((e.getRootNode() as ShadowRoot).host));
     const actionable = isVisible && !covered && !disabled && inTop;
     const group =
-      e.closest('form,[role="group"],fieldset,li,tr,[role="row"]') ||
+      e.closest(
+        '[role="group"],fieldset,[class*="form-item" i],[class*="form-field" i],li,tr,[role="row"],[class*="card" i],form',
+      ) ||
       parent(e) ||
       e;
-    const groupId = group === e ? node : `group:${selector(group)}`;
+    const groupId = groupRef(group);
+    const groupLabel = clean(
+      group.getAttribute('aria-label') ||
+        textOf(
+          group.querySelector(
+            ':scope > legend,:scope > label,:scope > [class*="label" i],:scope > [role="heading"]',
+          ),
+        ),
+      180,
+    );
     const layerPath = path(e);
     const context = localContext(e);
+    const groupSignature = clean(groupLabel || context || groupId, 180);
+    const effect =
+      checked !== null || selected !== null
+        ? activeState(checked ?? selected)
+          ? 'deactivate'
+          : 'activate'
+        : undefined;
     const score = Math.round(
       named.confidence * 50 +
         (actionable ? 30 : 0) +
@@ -412,13 +530,22 @@ export function browserSnapshot(): unknown {
     ]);
     e.setAttribute('data-midscene-jev-id', node);
     e.setAttribute('data-midscene-jev-guard', guard);
+    const editable =
+      !(
+        (e instanceof HTMLInputElement || e instanceof HTMLTextAreaElement) &&
+        e.readOnly
+      ) &&
+      e.getAttribute('aria-readonly') !== 'true' &&
+      (e instanceof HTMLTextAreaElement ||
+        (e instanceof HTMLInputElement &&
+          !['button', 'submit', 'reset', 'checkbox', 'radio'].includes(
+            e.type,
+          )) ||
+        e.getAttribute('contenteditable') === 'true');
     const kind =
       e instanceof HTMLSelectElement
         ? 'select'
-        : (e instanceof HTMLInputElement ||
-              e instanceof HTMLTextAreaElement ||
-              e.getAttribute('contenteditable') === 'true') &&
-            !disabled
+        : editable && !disabled
           ? 'fill'
           : 'click';
     facts.push({
@@ -432,6 +559,7 @@ export function browserSnapshot(): unknown {
       ...(expanded !== null ? { expanded } : {}),
       region: where,
       groupId,
+      ...(groupLabel ? { groupLabel } : {}),
       layerPath,
       ...(context ? { localContext: context } : {}),
       nameSource: named.source,
@@ -453,10 +581,12 @@ export function browserSnapshot(): unknown {
       ...(expanded !== null ? { expanded } : {}),
       region: where,
       groupId,
+      ...(groupLabel ? { groupLabel } : {}),
       layerPath,
       ...(context ? { localContext: context } : {}),
       nameSource: named.source,
       semanticConfidence: named.confidence,
+      ...(effect ? { effect } : {}),
       selector: selector(e),
       score,
     };
@@ -474,29 +604,25 @@ export function browserSnapshot(): unknown {
               r,
               `${named.label} → ${option.text}`,
               where,
+              groupSignature,
             ),
           });
       continue;
     }
-    const editable =
-      !(
-        (e instanceof HTMLInputElement || e instanceof HTMLTextAreaElement) &&
-        e.readOnly
-      ) &&
-      e.getAttribute('aria-readonly') !== 'true' &&
-      (e instanceof HTMLTextAreaElement ||
-        (e instanceof HTMLInputElement &&
-          !['button', 'submit', 'reset', 'checkbox', 'radio'].includes(
-            e.type,
-          )) ||
-        e.getAttribute('contenteditable') === 'true');
     const actionKind = editable ? 'fill' : 'click';
     addAction({
       id: node,
       ...base,
       kind: actionKind,
       label: named.label,
-      signature: sign(actionKind, r, named.label, where),
+      signature: sign(
+        actionKind,
+        r,
+        named.label,
+        where,
+        groupSignature,
+        effect,
+      ),
     });
     if (editable && current)
       addAction({
@@ -504,7 +630,7 @@ export function browserSnapshot(): unknown {
         ...base,
         kind: 'clear',
         label: `Clear ${named.label}`,
-        signature: sign('clear', r, named.label, where),
+        signature: sign('clear', r, named.label, where, groupSignature),
       });
   }
   for (const e of all) {
@@ -577,16 +703,94 @@ export function browserSnapshot(): unknown {
       });
   }
   const text = contentText(activeLayer?.element || document.body);
-  const alerts = all
-    .filter(
-      (e) =>
-        e.matches(
-          '[aria-live="assertive"],[aria-invalid="true"],[class*="message-error"],[class*="notification-error"],[class*="alert-error"],[class*="form-item-message"],[class*="form-message"][class*="error"]',
-        ) &&
-        visible(e) &&
-        viewport(e),
-    )
-    .map((e) => name(e).label)
+  const requiredPattern =
+    /(?:\brequired\b|must\s+(?:be\s+)?(?:filled|provided|selected)|cannot\s+be\s+empty|必填|不能为空|请填写|请选择)/iu;
+  const plainRequiredPattern =
+    /(?:\brequired\b|must\s+(?:be\s+)?(?:filled|provided|selected)|cannot\s+be\s+empty|必填|不能为空)/iu;
+  const controlSelector =
+    'input:not([type="hidden"]),textarea,select,[contenteditable="true"],[role="textbox"],[role="combobox"],[role="checkbox"],[role="radio"]';
+  const validationSelector =
+    '[aria-live="assertive"],[aria-invalid="true"],[role="alert"],[class*="message-error" i],[class*="error-message" i],[class*="notification-error" i],[class*="alert-error" i],[class*="form-item-message" i],[class*="form-message" i][class*="error" i],[class*="form-item-explain" i]';
+  const validations: Array<Record<string, unknown>> = [];
+  const validationKeys = new Set<string>();
+  for (const e of all) {
+    if (!visible(e) || !viewport(e)) continue;
+    const rawMessage = textOf(e);
+    const explicit = e.matches(validationSelector);
+    const fieldContainer = e.closest(
+      '[role="group"],fieldset,[class*="form-item" i],[class*="form-field" i],li,tr,[role="row"]',
+    );
+    const fieldControls = fieldContainer
+      ? Array.from(fieldContainer.querySelectorAll(controlSelector))
+      : [];
+    const plainRequired =
+      e.children.length === 0 &&
+      rawMessage.length > 0 &&
+      rawMessage.length <= 300 &&
+      plainRequiredPattern.test(rawMessage) &&
+      fieldControls.length === 1;
+    if (!explicit && !plainRequired) continue;
+    const container = fieldContainer || e.closest('form') || parent(e);
+    const controls = e.matches(controlSelector)
+      ? [e]
+      : Array.from(container?.querySelectorAll(controlSelector) || []);
+    const referencedControl = e.id
+      ? controls.find((item) =>
+          ['aria-errormessage', 'aria-describedby'].some((attribute) =>
+            (item.getAttribute(attribute) || '').split(/\s+/u).includes(e.id),
+          ),
+        )
+      : undefined;
+    const control =
+      (e.matches(controlSelector) ? e : undefined) ||
+      referencedControl ||
+      (controls.length === 1 ? controls[0] : undefined);
+    const describedIds = clean(
+      control?.getAttribute('aria-errormessage') ||
+        control?.getAttribute('aria-describedby'),
+    );
+    const describedMessage = describedIds
+      ? clean(
+          describedIds
+            .split(/\s+/u)
+            .map((item) => textOf(document.getElementById(item)))
+            .join(' '),
+        )
+      : '';
+    const message =
+      describedMessage ||
+      rawMessage ||
+      (e.getAttribute('aria-invalid') === 'true'
+        ? `${name(e).label} is invalid`
+        : '');
+    if (!message) continue;
+    const labelElement = container?.querySelector(
+      'legend,label,[class*="label" i],[data-label]',
+    );
+    const field = clean(
+      (control ? name(control).label : '') || textOf(labelElement),
+      180,
+    );
+    const validationGroup = container || control || e;
+    const groupId = groupRef(validationGroup);
+    const controlId = control ? id(control) : '';
+    const key = `${groupId}|${controlId}|${field}|${message}`;
+    if (validationKeys.has(key)) continue;
+    validationKeys.add(key);
+    validations.push({
+      message,
+      ...(field ? { field } : {}),
+      groupId,
+      ...(controlId ? { controlId } : {}),
+      required:
+        requiredPattern.test(message) ||
+        control?.hasAttribute('required') === true ||
+        control?.getAttribute('aria-required') === 'true',
+    });
+    if (validations.length >= 8) break;
+  }
+  const alerts = validations
+    .map((item) => String(item.message || ''))
     .filter(Boolean)
     .slice(0, 5);
   const workflowSteps = all
@@ -678,23 +882,33 @@ export function browserSnapshot(): unknown {
         e.scrollHeight > e.clientHeight + 2 ||
         e.scrollWidth > e.clientWidth + 2,
     )
-    .map((e) => [id(e), e.scrollTop, e.scrollLeft]);
+    .map((e) => [role(e), name(e).label, region(e), e.scrollTop, e.scrollLeft])
+    .sort((left, right) =>
+      JSON.stringify(left).localeCompare(JSON.stringify(right)),
+    );
+  const semanticFacts = facts
+    .filter((fact) => fact.actionable)
+    .map((fact) => [
+      fact.role,
+      clean(String(fact.label || ''), 160).toLocaleLowerCase(),
+      fact.region,
+      clean(String(fact.localContext || ''), 120).toLocaleLowerCase(),
+      fact.currentValue,
+      fact.expanded,
+    ])
+    .sort((left, right) =>
+      JSON.stringify(left).localeCompare(JSON.stringify(right)),
+    );
   const progressMarker = JSON.stringify([
     location.origin,
     location.pathname,
     document.title,
     workflowSteps,
-    facts
-      .filter((fact) => fact.actionable)
-      .map((fact) => [
-        fact.id,
-        fact.currentValue,
-        fact.checked,
-        fact.selected,
-        fact.expanded,
-      ]),
+    semanticFacts,
+    clean(text.replace(/\b\d+(?:[.,:/-]\d+)*\b/gu, '#'), 1_200),
     scrollPositions,
-    activeLayer?.id || null,
+    activeLayer ? [activeLayer.kind, activeLayer.label] : null,
+    alerts,
   ]);
   const marker = JSON.stringify([
     location.href,
@@ -734,6 +948,7 @@ export function browserSnapshot(): unknown {
       })),
     ],
     alerts,
+    validations,
     workflowSteps,
     ...(activeLayer
       ? {

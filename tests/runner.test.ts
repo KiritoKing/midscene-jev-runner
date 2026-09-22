@@ -21,7 +21,7 @@ const browserSnapshot = (marker = 'first') => ({
   title: 'Example',
   text: 'Complete the form',
   marker,
-  alerts: [],
+  alerts: [] as string[],
   actions: [
     {
       id: '1',
@@ -408,6 +408,161 @@ describe('JEV runner', () => {
     });
 
     const result = await runJev(page, { goal: 'Continue', fetch });
+
+    expect(result.steps).toBe(3);
+    expect(locator.click).toHaveBeenCalledTimes(2);
+  });
+
+  it('stops after two unrelated actions leave the same structured validation unresolved', async () => {
+    setupJevEnvironment();
+    const invalid = (marker: string) => ({
+      ...browserSnapshot(marker),
+      progressMarker: `semantic-${marker}`,
+      alerts: ['Account identifiers are required'],
+      validations: [
+        {
+          message: 'Account identifiers are required',
+          field: 'Account identifiers',
+          groupId: 'group:account-identifiers',
+          required: true,
+        },
+      ],
+      actions: [
+        {
+          id: 'optional-benefit',
+          node: '1',
+          guard: 'stable',
+          kind: 'click' as const,
+          label: 'Optional benefit',
+          role: 'checkbox',
+          region: 'main',
+          groupId: 'group:benefit',
+          signature: 'click|main|checkbox|optional benefit|activate',
+          effect: 'activate',
+        },
+      ],
+    });
+    const { page, locator } = pageFor([
+      invalid('initial'),
+      invalid('toggle-on'),
+      invalid('toggle-off'),
+    ]);
+    const events: Array<Record<string, unknown>> = [];
+    const fetch = vi.fn<typeof globalThis.fetch>(async () =>
+      response({
+        answers: {
+          operation: { type: 'choice', choice: 'CLICK' },
+          click_target: {
+            type: 'choice',
+            choice: 'optional-benefit',
+          },
+        },
+      }),
+    );
+
+    await expect(
+      runJev(page, {
+        goal: 'Complete the required account identifiers',
+        fetch,
+        maxSteps: 6,
+        observer: (event) => events.push(event as Record<string, unknown>),
+      }),
+    ).rejects.toThrow(
+      'JEV repeatedly acted outside the field with unresolved validation.',
+    );
+
+    expect(fetch).toHaveBeenCalledTimes(2);
+    expect(locator.click).toHaveBeenCalledTimes(2);
+    expect(events).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'action',
+          progressed: false,
+        }),
+        expect.objectContaining({
+          type: 'failure',
+          reason:
+            'JEV repeatedly acted outside the field with unresolved validation.',
+          result: expect.objectContaining({ steps: 2 }),
+        }),
+      ]),
+    );
+  });
+
+  it('rejects apparent page progress when a toggle never reaches its requested state', async () => {
+    setupJevEnvironment();
+    const unchangedToggle = (marker: string) => ({
+      ...browserSnapshot(marker),
+      progressMarker: `different-${marker}`,
+      facts: [
+        {
+          id: 'feature-toggle',
+          label: 'Feature toggle',
+          role: 'checkbox',
+          kind: 'click',
+          checked: 'false',
+          region: 'main',
+          groupId: 'group:feature',
+          layerPath: ['page'],
+          visible: true,
+          actionable: true,
+          covered: false,
+          disabled: false,
+        },
+      ],
+      actions: [
+        {
+          id: 'feature-toggle',
+          node: '1',
+          guard: 'stable',
+          kind: 'click' as const,
+          label: 'Feature toggle',
+          role: 'checkbox',
+          checked: 'false',
+          effect: 'activate',
+          region: 'main',
+          groupId: 'group:feature',
+          signature: 'click|main|checkbox|feature toggle|activate',
+        },
+      ],
+    });
+    const { page, locator } = pageFor([
+      unchangedToggle('initial'),
+      unchangedToggle('after-one'),
+      unchangedToggle('after-two'),
+    ]);
+    let decisions = 0;
+    const fetch = vi.fn<typeof globalThis.fetch>(async (_input, init) => {
+      decisions += 1;
+      if (decisions <= 2)
+        return response({
+          answers: {
+            operation: { type: 'choice', choice: 'CLICK' },
+            click_target: { type: 'choice', choice: 'feature-toggle' },
+          },
+        });
+      const request = JSON.parse(String(init?.body));
+      expect(request.questions).not.toHaveProperty('click_target');
+      expect(request.state.recent_actions).toEqual([
+        expect.objectContaining({
+          outcome: 'no-progress',
+          error: 'The target did not reach the requested activate state.',
+        }),
+        expect.objectContaining({
+          outcome: 'no-progress',
+          error: 'The target did not reach the requested activate state.',
+        }),
+      ]);
+      return response({
+        answers: { operation: { type: 'choice', choice: 'DONE' } },
+      });
+    });
+
+    const result = await runJev(page, {
+      goal: 'Activate Feature toggle',
+      fetch,
+      maxSteps: 6,
+    });
 
     expect(result.steps).toBe(3);
     expect(locator.click).toHaveBeenCalledTimes(2);

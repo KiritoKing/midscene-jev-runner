@@ -20,6 +20,8 @@ export type BrowserNameSource =
   | 'inferred'
   | 'unknown';
 
+export type BrowserActionEffect = 'activate' | 'deactivate';
+
 export interface BrowserAction {
   id: string;
   node?: string;
@@ -35,10 +37,12 @@ export interface BrowserAction {
   expanded?: string;
   region?: BrowserRegion;
   groupId?: string;
+  groupLabel?: string;
   layerPath?: string[];
   localContext?: string;
   nameSource?: BrowserNameSource;
   semanticConfidence?: number;
+  effect?: BrowserActionEffect;
   framePath?: number[];
   selector?: string;
   score?: number;
@@ -73,6 +77,14 @@ export interface BrowserWorkflowStep {
   status: string;
 }
 
+export interface BrowserValidationIssue {
+  message: string;
+  field?: string;
+  groupId?: string;
+  controlId?: string;
+  required: boolean;
+}
+
 export interface BrowserActiveLayer {
   kind: 'dialog' | 'overlay';
   label: string;
@@ -96,6 +108,7 @@ export interface BrowserSnapshot {
   facts: BrowserFact[];
   layers: BrowserLayer[];
   alerts: string[];
+  validationIssues: BrowserValidationIssue[];
   workflowSteps: BrowserWorkflowStep[];
   activeLayer?: BrowserActiveLayer;
   loading: boolean;
@@ -114,10 +127,12 @@ export interface JevRecentAction {
     | 'failed'
     | 'rejected';
   error?: string;
-  snapshotMarker?: string;
+  fromProgressMarker?: string;
+  toProgressMarker?: string;
   signature?: string;
   recoveryEpoch?: number;
   feedback?: string[];
+  group?: string;
 }
 
 interface JevQuestion {

@@ -1,6 +1,7 @@
 import type { Frame, Page } from 'playwright';
 import type {
   BrowserAction,
+  BrowserActionEffect,
   BrowserActionKind,
   BrowserActiveLayer,
   BrowserFact,
@@ -8,6 +9,7 @@ import type {
   BrowserNameSource,
   BrowserRegion,
   BrowserSnapshot,
+  BrowserValidationIssue,
   BrowserWorkflowStep,
 } from '../internal-types';
 import { operationByAction } from '../operations';
@@ -40,6 +42,7 @@ const kinds = new Set<BrowserActionKind>([
   'wait',
   'dismiss',
 ]);
+const effects = new Set<BrowserActionEffect>(['activate', 'deactivate']);
 const termsFor = (goal: string | undefined): string[] => {
   const segments = (goal || '')
     .toLocaleLowerCase()
@@ -138,6 +141,8 @@ export const observe = async (
   const actions: BrowserAction[] = [];
   const facts: BrowserFact[] = [];
   const layers: BrowserLayer[] = [];
+  const validationIssues: BrowserValidationIssue[] = [];
+  const validationKeys = new Set<string>();
   let omittedActions = 0;
   for (const { raw, path } of samples) {
     const prefix = prefixFor(path);
@@ -162,6 +167,29 @@ export const observe = async (
             ? { parentId: qualify(value.parentId) }
             : {}),
           blocking: value.blocking === true,
+        });
+      }
+    if (Array.isArray(raw.validations))
+      for (const value of raw.validations) {
+        if (!isRecord(value) || typeof value.message !== 'string') continue;
+        const groupId =
+          typeof value.groupId === 'string'
+            ? qualify(value.groupId)
+            : undefined;
+        const field = typeof value.field === 'string' ? value.field : undefined;
+        const controlId =
+          typeof value.controlId === 'string'
+            ? qualify(value.controlId)
+            : undefined;
+        const key = `${groupId || ''}|${controlId || ''}|${field || ''}|${value.message}`;
+        if (validationKeys.has(key)) continue;
+        validationKeys.add(key);
+        validationIssues.push({
+          message: value.message,
+          ...(field ? { field } : {}),
+          ...(groupId ? { groupId } : {}),
+          ...(controlId ? { controlId } : {}),
+          required: value.required === true,
         });
       }
     if (Array.isArray(raw.facts))
@@ -271,9 +299,16 @@ export const observe = async (
           ...(typeof value.expanded === 'string'
             ? { expanded: value.expanded }
             : {}),
+          ...(typeof value.effect === 'string' &&
+          effects.has(value.effect as BrowserActionEffect)
+            ? { effect: value.effect as BrowserActionEffect }
+            : {}),
           ...(region ? { region } : {}),
           ...(typeof value.groupId === 'string'
             ? { groupId: qualify(value.groupId) }
+            : {}),
+          ...(typeof value.groupLabel === 'string'
+            ? { groupLabel: value.groupLabel }
             : {}),
           layerPath: asPath(value.layerPath, prefix),
           ...(localContext ? { localContext } : {}),
@@ -360,6 +395,7 @@ export const observe = async (
           (value): value is string => typeof value === 'string',
         )
       : [],
+    validationIssues,
     workflowSteps,
     ...(activeLayer ? { activeLayer } : {}),
     loading: main.loading === true,

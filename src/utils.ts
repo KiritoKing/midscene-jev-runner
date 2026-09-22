@@ -31,16 +31,22 @@ export const endpoint = (base: string, path: string): string => {
 export const recentActionsForModel = (
   actions: JevRecentAction[],
 ): Array<
-  Omit<JevRecentAction, 'snapshotMarker' | 'signature' | 'recoveryEpoch'>
+  Omit<
+    JevRecentAction,
+    'fromProgressMarker' | 'toProgressMarker' | 'signature' | 'recoveryEpoch'
+  >
 > =>
-  actions.map(({ operation, target, label, outcome, error, feedback }) => ({
-    operation,
-    ...(target !== undefined ? { target } : {}),
-    ...(label !== undefined ? { label } : {}),
-    outcome,
-    ...(error !== undefined ? { error } : {}),
-    ...(feedback !== undefined ? { feedback } : {}),
-  }));
+  actions.map(
+    ({ operation, target, label, outcome, error, feedback, group }) => ({
+      operation,
+      ...(target !== undefined ? { target } : {}),
+      ...(label !== undefined ? { label } : {}),
+      outcome,
+      ...(error !== undefined ? { error } : {}),
+      ...(feedback !== undefined ? { feedback } : {}),
+      ...(group !== undefined ? { group } : {}),
+    }),
+  );
 
 export const waitForAbortable = (
   duration: number,
