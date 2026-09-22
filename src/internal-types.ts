@@ -11,6 +11,15 @@ export type BrowserActionKind =
 
 export type BrowserRegion = 'dialog' | 'main' | 'navigation' | 'content';
 
+export type BrowserNameSource =
+  | 'aria'
+  | 'native-label'
+  | 'attribute'
+  | 'content'
+  | 'nearby'
+  | 'inferred'
+  | 'unknown';
+
 export interface BrowserAction {
   id: string;
   node?: string;
@@ -25,7 +34,37 @@ export interface BrowserAction {
   selected?: string;
   expanded?: string;
   region?: BrowserRegion;
+  groupId?: string;
+  layerPath?: string[];
+  localContext?: string;
+  nameSource?: BrowserNameSource;
+  semanticConfidence?: number;
+  framePath?: number[];
+  selector?: string;
+  score?: number;
   signature?: string;
+}
+
+export interface BrowserFact {
+  id: string;
+  label: string;
+  role: string;
+  kind: BrowserActionKind;
+  currentValue?: string;
+  checked?: string;
+  selected?: string;
+  expanded?: string;
+  region: BrowserRegion;
+  groupId: string;
+  layerPath: string[];
+  localContext?: string;
+  nameSource: BrowserNameSource;
+  semanticConfidence: number;
+  visible: boolean;
+  actionable: boolean;
+  covered: boolean;
+  disabled: boolean;
+  score: number;
 }
 
 export interface BrowserWorkflowStep {
@@ -39,6 +78,14 @@ export interface BrowserActiveLayer {
   label: string;
 }
 
+export interface BrowserLayer {
+  id: string;
+  kind: 'page' | 'dialog' | 'popover' | 'menu' | 'listbox' | 'overlay';
+  label: string;
+  parentId?: string;
+  blocking: boolean;
+}
+
 export interface BrowserSnapshot {
   url: string;
   title: string;
@@ -46,6 +93,8 @@ export interface BrowserSnapshot {
   marker: string;
   progressMarker: string;
   actions: BrowserAction[];
+  facts: BrowserFact[];
+  layers: BrowserLayer[];
   alerts: string[];
   workflowSteps: BrowserWorkflowStep[];
   activeLayer?: BrowserActiveLayer;

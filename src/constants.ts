@@ -10,3 +10,8 @@ export const MAX_PAGE_TEXT_LENGTH = 6_000;
 export const MAX_LABEL_LENGTH = 300;
 export const MAX_FIELD_VALUE_LENGTH = 500;
 export const MAX_RECENT_ACTIONS = 10;
+// The decision API sees a globally ranked shortlist, never a per-operation
+// multiplication of candidates.
+export const MAX_DECISION_CANDIDATES = 24;
+export const MAX_DECISION_FACTS = 60;
+export const MAX_DECISION_LAYERS = 20;

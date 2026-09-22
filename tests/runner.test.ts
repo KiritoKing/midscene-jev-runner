@@ -429,7 +429,7 @@ describe('JEV runner', () => {
           kind: 'fill' as const,
           label: 'Site search',
           role: 'searchbox',
-          region: 'content',
+          region: 'navigation',
         },
         {
           id: 'submit',

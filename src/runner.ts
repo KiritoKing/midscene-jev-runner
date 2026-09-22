@@ -87,7 +87,7 @@ export const runJev = async (
   };
 
   try {
-    let snapshot = await observe(page);
+    let snapshot = await observe(page, options.goal);
     let noProgressSteps = 0;
     let recoveryEpoch = 0;
     const recentActions: JevRecentAction[] = [];
@@ -183,7 +183,7 @@ export const runJev = async (
           signature: 'DONE',
           recoveryEpoch,
         });
-        snapshot = await observe(page);
+        snapshot = await observe(page, options.goal);
         noProgressSteps += 1;
         if (noProgressSteps >= maxNoProgressSteps)
           throw new Error(
@@ -212,7 +212,7 @@ export const runJev = async (
           signature: 'BLOCKED',
           recoveryEpoch,
         });
-        snapshot = await observe(page);
+        snapshot = await observe(page, options.goal);
         noProgressSteps += 1;
         if (noProgressSteps >= maxNoProgressSteps)
           throw new Error(
@@ -266,7 +266,7 @@ export const runJev = async (
           progressed: false,
           error: message,
         });
-        snapshot = await observe(page);
+        snapshot = await observe(page, options.goal);
         noProgressSteps += 1;
         if (noProgressSteps >= maxNoProgressSteps)
           throw new Error(
@@ -294,7 +294,7 @@ export const runJev = async (
           stale: true,
           progressed: false,
         });
-        snapshot = await observe(page);
+        snapshot = await observe(page, options.goal);
         noProgressSteps += 1;
         if (noProgressSteps >= maxNoProgressSteps)
           throw new Error(
@@ -302,7 +302,7 @@ export const runJev = async (
           );
         continue;
       }
-      snapshot = await observe(page);
+      snapshot = await observe(page, options.goal);
       const feedback = snapshot.alerts.filter(
         (message) => !previousAlerts.has(message),
       );
