@@ -30,13 +30,16 @@
     "THIRD_PARTY_LICENSES.txt"
   ],
   "scripts": {
-    "build": "rslib build",
-    "lint": "biome check .",
+    "build": "pnpm run generate:browser-runtime && rslib build",
+    "generate:browser-runtime": "node scripts/generate-browser-runtime.mjs",
+    "lint": "pnpm run generate:browser-runtime:check && biome check .",
+    "generate:browser-runtime:check": "node scripts/generate-browser-runtime.mjs --check",
     "prepack": "pnpm run build",
     "release:verify": "node scripts/verify-release.mjs",
+    "smoke:package": "node scripts/smoke-package.mjs",
     "test": "vitest run",
     "typecheck": "tsc --noEmit",
-    "check": "pnpm run lint && pnpm run typecheck && pnpm run test && pnpm run build"
+    "check": "pnpm run lint && pnpm run typecheck && pnpm run test && pnpm run build && pnpm run smoke:package"
   },
   "keywords": [
     "midscene",

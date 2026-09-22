@@ -9,7 +9,11 @@ import {
   MAX_GOAL_LENGTH,
   MAX_RECENT_ACTIONS,
 } from './constants';
-import { createDecisionRequest, validChoice } from './decision';
+import {
+  choiceProbability,
+  createDecisionRequest,
+  validChoice,
+} from './decision';
 import { requestDecision } from './decision-client';
 import { JevRunError } from './errors';
 import type {
@@ -174,11 +178,10 @@ export const runJev = async (
         request.operations,
       ) as JevOperation;
       const candidates = request.targets[operation];
+      const targetAnswer =
+        response?.answers?.[`${operation.toLowerCase()}_target`];
       const target = candidates
-        ? validChoice(
-            response?.answers?.[`${operation.toLowerCase()}_target`],
-            candidates,
-          )
+        ? validChoice(targetAnswer, candidates)
         : undefined;
       const action = target && candidates ? candidates[target] : undefined;
       result.steps = step;
@@ -246,6 +249,44 @@ export const runJev = async (
         continue;
       }
       if (!action) throw new Error('JEV selected an action without a target.');
+
+      const targetProbability = target
+        ? choiceProbability(targetAnswer, target)
+        : undefined;
+      const weaklyAligned =
+        action.taskAlignment === 'none' || action.taskAlignment === 'scope';
+      if (
+        weaklyAligned &&
+        targetProbability !== undefined &&
+        targetProbability < 0.5
+      ) {
+        const message =
+          'JEV selected a low-confidence target without direct goal-label alignment; no browser action was executed.';
+        remember({
+          operation,
+          target,
+          label: action.label,
+          outcome: 'no-progress',
+          error: message,
+          fromProgressMarker: snapshot.progressMarker,
+          signature: action.signature || `${operation}:${target}`,
+          recoveryEpoch,
+          ...(actionGroupKey(action) ? { group: actionGroupKey(action) } : {}),
+        });
+        options.observer?.({
+          type: 'action',
+          step,
+          operation,
+          target,
+          label: action.label,
+          stale: false,
+          progressed: false,
+          error: message,
+        });
+        noProgressSteps += 1;
+        if (noProgressSteps >= maxNoProgressSteps) throw new Error(message);
+        continue;
+      }
 
       const previousProgressMarker = snapshot.progressMarker;
       let fresh: boolean;

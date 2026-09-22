@@ -45,8 +45,8 @@ const pageFor = (
     fill: vi.fn(async () => undefined),
     selectOption: vi.fn(async () => undefined),
   };
-  const evaluate = vi.fn(async (fn: { name?: string }) => {
-    if (fn.name === 'browserSnapshot')
+  const evaluate = vi.fn(async (fn: unknown) => {
+    if (typeof fn === 'string' && fn.includes('function browserSnapshot'))
       return snapshots.shift() ?? browserSnapshot('last');
     return fresh;
   });
@@ -261,7 +261,10 @@ describe('JEV runner', () => {
     expect(fetch).toHaveBeenCalledTimes(1);
     expect(locator.click).toHaveBeenCalledTimes(1);
     expect(
-      evaluate.mock.calls.filter(([fn]) => fn.name === 'browserSnapshot'),
+      evaluate.mock.calls.filter(
+        ([fn]) =>
+          typeof fn === 'string' && fn.includes('function browserSnapshot'),
+      ),
     ).toHaveLength(2);
   });
 

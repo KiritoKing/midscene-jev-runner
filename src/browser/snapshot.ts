@@ -1,10 +1,20 @@
-// This function is serialized into each Playwright frame.  Do not import from it.
-export function browserSnapshot(): unknown {
+// This function is compiled into a self-contained browser-realm string. Do not
+// import runtime helpers into it.
+export function browserSnapshot(
+  input: { terms?: string[]; includeGoalTextActions?: boolean } = {},
+): unknown {
   if (!document.body) return null;
   const maxActions = 1000;
   const maxFacts = 1000;
   const maxLabel = 300;
   const maxText = 6000;
+  const goalTerms = Array.isArray(input.terms)
+    ? input.terms
+        .filter((term): term is string => typeof term === 'string')
+        .map((term) => term.replace(/\s+/gu, ' ').trim().toLocaleLowerCase())
+        .filter((term) => term.length > 1)
+        .slice(0, 120)
+    : [];
   type Cache = {
     ids: WeakMap<Element, number>;
     next: number;
@@ -189,17 +199,32 @@ export function browserSnapshot(): unknown {
     }
     return { label: role(e), source: 'inferred', confidence: 0.2 };
   };
+  const groupFor = (e: Element): Element =>
+    e.closest(
+      'tr,[role="row"],li,[role="listitem"],[class*="card" i],[role="group"],[role="toolbar"],fieldset,[class*="form-item" i],[class*="form-field" i]',
+    ) ||
+    parent(e) ||
+    e;
+  const focusedText = (value: string | null | undefined, length = 220) => {
+    const normalized = (value || '').replace(/\s+/gu, ' ').trim();
+    if (normalized.length <= length) return normalized;
+    const lowered = normalized.toLocaleLowerCase();
+    const anchor = [...goalTerms]
+      .filter((term) => term.length >= 4 && lowered.includes(term))
+      .sort((left, right) => right.length - left.length)[0];
+    if (!anchor) return normalized.slice(0, length);
+    const index = lowered.indexOf(anchor);
+    const start = Math.max(0, index - Math.floor((length - anchor.length) / 2));
+    return normalized.slice(start, start + length);
+  };
   const localContext = (e: Element): string | undefined => {
-    const container =
-      e.closest(
-        '[role="group"],fieldset,[class*="form-item" i],[class*="form-field" i],li,tr,[role="row"],[class*="card" i],section,article,form',
-      ) || parent(e);
+    const container = groupFor(e);
     if (!container) return undefined;
     const heading = container.querySelector(
       'h1,h2,h3,h4,h5,h6,[role="heading"]',
     );
     return (
-      clean(heading?.textContent || container.textContent, 180) || undefined
+      focusedText(heading?.textContent || container.textContent) || undefined
     );
   };
   let textTruncated = false;
@@ -364,8 +389,22 @@ export function browserSnapshot(): unknown {
     e.matches(
       'a[href],button,input,textarea,select,summary,[contenteditable="true"],[aria-haspopup],[onclick]',
     ) ||
+    (e instanceof HTMLLabelElement && Boolean(e.control)) ||
     interactive.has(role(e)) ||
     getComputedStyle(e).cursor === 'pointer';
+  const clickabilityEvidence = (e: Element): string => {
+    if (
+      e.matches(
+        'a[href],button,input,textarea,select,summary,[contenteditable="true"]',
+      ) ||
+      e instanceof HTMLLabelElement
+    )
+      return 'native';
+    if (interactive.has(role(e)) || e.hasAttribute('aria-haspopup'))
+      return 'aria';
+    if (e.hasAttribute('onclick')) return 'inline-handler';
+    return 'pointer-style';
+  };
   const value = (e: Element) =>
     e instanceof HTMLInputElement ||
     e instanceof HTMLTextAreaElement ||
@@ -461,7 +500,6 @@ export function browserSnapshot(): unknown {
     )
       continue;
     foundFacts += 1;
-    if (facts.length >= maxFacts) continue;
     const node = id(e);
     const named = name(e);
     const nativeRole = role(e);
@@ -499,12 +537,7 @@ export function browserSnapshot(): unknown {
       (e.getRootNode() instanceof ShadowRoot &&
         activeLayer.element.contains((e.getRootNode() as ShadowRoot).host));
     const actionable = isVisible && !covered && !disabled && inTop;
-    const group =
-      e.closest(
-        '[role="group"],fieldset,[class*="form-item" i],[class*="form-field" i],li,tr,[role="row"],[class*="card" i],form',
-      ) ||
-      parent(e) ||
-      e;
+    const group = groupFor(e);
     const groupId = groupRef(group);
     const groupLabel = clean(
       group.getAttribute('aria-label') ||
@@ -559,28 +592,30 @@ export function browserSnapshot(): unknown {
         : editable && !disabled
           ? 'fill'
           : 'click';
-    facts.push({
-      id: node,
-      label: named.label,
-      role: r,
-      kind,
-      currentValue: current,
-      ...(checked !== null ? { checked } : {}),
-      ...(selected !== null ? { selected } : {}),
-      ...(expanded !== null ? { expanded } : {}),
-      region: where,
-      groupId,
-      ...(groupLabel ? { groupLabel } : {}),
-      layerPath,
-      ...(context ? { localContext: context } : {}),
-      nameSource: named.source,
-      semanticConfidence: named.confidence,
-      visible: isVisible,
-      actionable,
-      covered,
-      disabled,
-      score,
-    });
+    if (facts.length < maxFacts)
+      facts.push({
+        id: node,
+        label: named.label,
+        role: r,
+        kind,
+        currentValue: current,
+        ...(checked !== null ? { checked } : {}),
+        ...(selected !== null ? { selected } : {}),
+        ...(expanded !== null ? { expanded } : {}),
+        region: where,
+        groupId,
+        ...(groupLabel ? { groupLabel } : {}),
+        layerPath,
+        ...(context ? { localContext: context } : {}),
+        nameSource: named.source,
+        semanticConfidence: named.confidence,
+        clickabilityEvidence: clickabilityEvidence(e),
+        visible: isVisible,
+        actionable,
+        covered,
+        disabled,
+        score,
+      });
     if (!actionable) continue;
     const base = {
       node,
@@ -597,6 +632,7 @@ export function browserSnapshot(): unknown {
       ...(context ? { localContext: context } : {}),
       nameSource: named.source,
       semanticConfidence: named.confidence,
+      clickabilityEvidence: clickabilityEvidence(e),
       ...(effect ? { effect } : {}),
       selector: selector(e),
       score,
@@ -637,6 +673,113 @@ export function browserSnapshot(): unknown {
         groupSignature,
         effect,
       ),
+    });
+  }
+  // Some production UIs attach a delegated click listener to plain text
+  // descendants without native semantics, ARIA, inline handlers, or a pointer
+  // cursor. Preserve only goal-relevant text leaves as low-confidence facts,
+  // and expose a click action only when the leaf is currently hit-testable.
+  // The target remains scoped to its nearest row/card/group so the model does
+  // not confuse it with a similarly named global action.
+  const goalMatches = (label: string) => {
+    const lowered = label.toLocaleLowerCase();
+    return goalTerms.some((term) => lowered.includes(term));
+  };
+  const hasEligibleAncestor = (e: Element) => {
+    let item = parent(e);
+    while (item) {
+      if (eligible(item)) return true;
+      item = parent(item);
+    }
+    return false;
+  };
+  for (const e of input.includeGoalTextActions === false ? [] : all) {
+    if (eligible(e) || hasEligibleAncestor(e)) continue;
+    if (
+      /^(HTML|BODY|SCRIPT|STYLE|TEMPLATE|NOSCRIPT)$/u.test(e.tagName) ||
+      Array.from(e.children).some(
+        (child) => clean(child.textContent).length > 0,
+      )
+    )
+      continue;
+    const label = clean(e.textContent, 80);
+    if (label.length < 2 || !goalMatches(label)) continue;
+    const isVisible = visible(e) && viewport(e);
+    if (!isVisible) continue;
+    const where = region(e);
+    const inTop =
+      !activeLayer ||
+      activeLayer.element.contains(e) ||
+      (e.getRootNode() instanceof ShadowRoot &&
+        activeLayer.element.contains((e.getRootNode() as ShadowRoot).host));
+    const disabled = hasAncestor(e, (item) =>
+      item.matches('[aria-disabled="true"],:disabled'),
+    );
+    const covered = !uncovered(e);
+    const actionable = inTop && !disabled && !covered;
+    const node = id(e);
+    const group = groupFor(e);
+    const groupId = groupRef(group);
+    const groupLabel = clean(
+      group.getAttribute('aria-label') ||
+        textOf(
+          group.querySelector(
+            ':scope > legend,:scope > label,:scope > [class*="label" i],:scope > [role="heading"]',
+          ),
+        ),
+      180,
+    );
+    const context = localContext(e);
+    const layerPath = path(e);
+    const guard = JSON.stringify([
+      'text-action',
+      label,
+      where,
+      clean(group.textContent, 1000),
+    ]);
+    e.setAttribute('data-midscene-jev-id', node);
+    e.setAttribute('data-midscene-jev-guard', guard);
+    foundFacts += 1;
+    if (facts.length < maxFacts)
+      facts.push({
+        id: node,
+        label,
+        role: 'text-action',
+        kind: 'click',
+        region: where,
+        groupId,
+        ...(groupLabel ? { groupLabel } : {}),
+        layerPath,
+        ...(context ? { localContext: context } : {}),
+        nameSource: 'content',
+        semanticConfidence: 0.35,
+        clickabilityEvidence: 'goal-relevant-text',
+        visible: true,
+        actionable,
+        covered,
+        disabled,
+        score: 36 + (where === 'dialog' ? 12 : where === 'main' ? 7 : 0),
+      });
+    if (!actionable) continue;
+    const groupSignature = clean(groupLabel || context || groupId, 220);
+    addAction({
+      id: node,
+      node,
+      guard,
+      kind: 'click',
+      label,
+      role: 'text-action',
+      region: where,
+      groupId,
+      ...(groupLabel ? { groupLabel } : {}),
+      layerPath,
+      ...(context ? { localContext: context } : {}),
+      nameSource: 'content',
+      semanticConfidence: 0.35,
+      clickabilityEvidence: 'goal-relevant-text',
+      selector: selector(e),
+      score: 36 + (where === 'dialog' ? 12 : where === 'main' ? 7 : 0),
+      signature: sign('click', 'text-action', label, where, groupSignature),
     });
   }
   for (const e of all) {

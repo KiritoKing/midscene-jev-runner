@@ -10,10 +10,12 @@ JEV 集成。本项目独立于 Midscene 仓库，不是 Midscene 官方包。
 - `evaluateJevAssertion(page, options)`：基于当前页面观察执行一次只读断言。
 - `createJevNodes(options)`：注册严格 schema 的 `jevAct` 与 `jevAssert` 节点。
 
-一个 `jevAct` 可包含多次浏览器操作。JEV 会在每轮决策后执行、重新观察，再决定
-是否继续，直到返回 `DONE`、`BLOCKED` 或达到配置的步数、时间上限。它的动作空间
-刻意不包含文本：只能点击、选择、滚动、等待和关闭。它不会生成文本、填充或清空输入
-框，也不会创建导航、拦截请求或关闭传入的页面。
+`jevAct` 应作为单个原子 `aiAct` 意图的更快替代，而不是自主完成整条测试用例的
+规划器。一个原子交互若会打开菜单或浮层，节点内部仍可执行一段很短的有界动作；完整
+流程则应拆成有序的 Midscene Test steps。Runner 会在每次动作后重新观察，直到返回
+`DONE`、`BLOCKED` 或达到配置上限。它的动作空间刻意不包含文本：只能点击、选择、
+滚动、等待和关闭。它不会生成文本、填充或清空输入框，也不会创建导航、拦截请求或
+关闭传入的页面。
 
 ## 安装
 
@@ -120,9 +122,9 @@ cases:
           prompt: 搜索输入框
           value: 由调用方提供的搜索词
       - jevAct:
-          goal: 使用当前页面控件展示所需结果，并留下可见的完成证据。
-          maxSteps: 12
-          maxTaskMs: 120000
+          goal: 为当前查询触发搜索动作。
+          maxSteps: 4
+          maxTaskMs: 30000
       - jevAssert:
           prompt: 所需结果和完成证据均可见。
           message: 页面没有展示预期的完成证据。

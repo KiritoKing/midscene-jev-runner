@@ -4,6 +4,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { runJev } from '../src';
 import { executeAction } from '../src/browser/execute';
 import { observe } from '../src/browser/observe';
+import { browserSnapshotSource } from '../src/browser/snapshot-runtime.generated';
 import { createDecisionRequest } from '../src/decision';
 import type { BrowserAction, BrowserSnapshot } from '../src/internal-types';
 
@@ -60,6 +61,144 @@ const withPage = async (run: (page: Page) => Promise<void>): Promise<void> => {
 };
 
 describe('hybrid browser context', () => {
+  it('uses a self-contained browser runtime without bundler helper leakage', async () => {
+    expect(browserSnapshotSource).toContain('function browserSnapshot');
+    expect(browserSnapshotSource).not.toContain('__name');
+    await withPage(async (page) => {
+      await page.setContent('<main><button>Continue</button></main>');
+      await expect(observe(page, 'Continue')).resolves.toEqual(
+        expect.objectContaining({
+          actions: expect.arrayContaining([
+            expect.objectContaining({ label: 'Continue' }),
+          ]),
+        }),
+      );
+    });
+  });
+
+  it('recovers a delegated plain-text action and scopes it to the matching row', async () => {
+    await withPage(async (page) => {
+      configureJev();
+      await page.setContent(`
+        <main>
+          <div role="toolbar"><button type="button">新增</button></div>
+          <table><tbody id="activities">
+            <tr><td>AC100 source activity</td><td><span class="clone">克隆</span></td></tr>
+            <tr><td>AC200 other activity</td><td><span class="clone">克隆</span></td></tr>
+          </tbody></table>
+          <p id="status">idle</p>
+        </main>
+        <script>
+          document.querySelector('#activities').addEventListener('click', (event) => {
+            if (event.target.matches('.clone'))
+              document.querySelector('#status').textContent = event.target.closest('tr').cells[0].textContent;
+          });
+        </script>
+      `);
+
+      const goal = '点击活动 AC100 行内的克隆';
+      const observed = await observe(page, goal);
+      const clone = observed.actions.find(
+        (action) =>
+          action.label === '克隆' && action.localContext?.includes('AC100'),
+      );
+      expect(clone).toEqual(
+        expect.objectContaining({
+          role: 'text-action',
+          clickabilityEvidence: 'goal-relevant-text',
+          taskAlignment: 'label-and-scope',
+        }),
+      );
+      expect(
+        observed.actions.find((action) => action.label === '新增')
+          ?.localContext,
+      ).not.toContain('AC100');
+
+      const fetch = vi.fn<typeof globalThis.fetch>(async (_input, init) => {
+        const request = JSON.parse(String(init?.body)) as Record<
+          string,
+          unknown
+        >;
+        const questions = request.questions as Record<
+          string,
+          { criteria?: DecisionCriteria }
+        >;
+        const target = Object.entries(
+          questions.click_target?.criteria ?? {},
+        ).find(
+          ([, candidate]) =>
+            candidate.element === '克隆' &&
+            (candidate as { local_context?: string }).local_context?.includes(
+              'AC100',
+            ),
+        );
+        expect(target?.[1]).toEqual(
+          expect.objectContaining({
+            task_alignment: 'label-and-scope',
+            clickability_evidence: 'goal-relevant-text',
+          }),
+        );
+        return response({
+          answers: {
+            operation: { type: 'choice', choice: 'CLICK' },
+            click_target: {
+              type: 'choice',
+              choice: target?.[0],
+              probabilities: { [target?.[0] ?? 'missing']: 0.97 },
+            },
+          },
+        });
+      });
+      const result = await runJev(page, {
+        goal,
+        fetch,
+        verifyCompletion: async ({ page: current }) =>
+          (await current.locator('#status').innerText()).includes('AC100'),
+      });
+      expect(result).toMatchObject({ steps: 1, completionVerified: true });
+    });
+  });
+
+  it('does not execute a low-confidence target with no direct goal-label alignment', async () => {
+    await withPage(async (page) => {
+      configureJev();
+      await page.setContent(`
+        <main>
+          <button type="button" onclick="this.dataset.clicked = 'true'">Create new</button>
+          <p>Activity AC100</p>
+        </main>
+      `);
+      const fetch = vi.fn<typeof globalThis.fetch>(async (_input, init) => {
+        const request = JSON.parse(String(init?.body)) as Record<
+          string,
+          unknown
+        >;
+        const target = targetChoice(request, 'CLICK', 'Create new');
+        return response({
+          answers: {
+            operation: { type: 'choice', choice: 'CLICK' },
+            click_target: {
+              type: 'choice',
+              choice: target,
+              probabilities: { [target]: 0.21 },
+            },
+          },
+        });
+      });
+
+      await expect(
+        runJev(page, {
+          goal: 'Clone activity AC100',
+          fetch,
+          maxNoProgressSteps: 1,
+        }),
+      ).rejects.toThrow('low-confidence target');
+      await expect(
+        page.locator('button').getAttribute('data-clicked'),
+      ).resolves.toBeNull();
+    });
+  });
+
   it('suppresses a completed action cycle after the page returns to the same semantic state', () => {
     const repeatedSignature = 'click|dialog|button|shipping method: priority';
     const snapshot: BrowserSnapshot = {
@@ -796,8 +935,8 @@ describe('hybrid browser context', () => {
       evaluate: vi.fn(async () => true),
     };
     const page = {
-      evaluate: vi.fn(async (fn: { name?: string }) =>
-        fn.name === 'browserSnapshot'
+      evaluate: vi.fn(async (fn: unknown) =>
+        typeof fn === 'string' && fn.includes('function browserSnapshot')
           ? (snapshots.shift() ?? raw('render-a-last', 'semantic-a'))
           : true,
       ),

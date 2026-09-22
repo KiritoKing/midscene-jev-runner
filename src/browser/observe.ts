@@ -9,12 +9,13 @@ import type {
   BrowserNameSource,
   BrowserRegion,
   BrowserSnapshot,
+  BrowserTaskAlignment,
   BrowserValidationIssue,
   BrowserWorkflowStep,
 } from '../internal-types';
 import { operationByAction } from '../operations';
 import { isRecord } from '../utils';
-import { browserSnapshot } from './snapshot';
+import { browserSnapshotSource } from './snapshot-runtime.generated';
 
 const actionLimit = 250;
 const factLimit = 500;
@@ -78,6 +79,12 @@ const framePath = (frame: Frame): number[] => {
 };
 const prefixFor = (path: number[]): string =>
   path.length ? `frame[${path.join('.')}]` : '';
+interface RankedRelevance {
+  score: number;
+  taskAlignment: BrowserTaskAlignment;
+  matchedGoalTerms: number;
+}
+
 const score = (
   label: string,
   role: string,
@@ -87,15 +94,53 @@ const score = (
   actionable: boolean,
   terms: string[],
   base: unknown,
-): number => {
-  const text =
-    `${label} ${role} ${region || ''} ${localContext || ''}`.toLocaleLowerCase();
-  const matched = terms.filter((term) => text.includes(term)).length;
-  return Math.round(
-    (typeof base === 'number' ? base : confidence * 50) +
-      matched * 22 +
-      (actionable ? 18 : 0),
+): RankedRelevance => {
+  const labelText = `${label} ${role}`.toLocaleLowerCase();
+  const scopeText = `${localContext || ''}`.toLocaleLowerCase();
+  const labelMatches = terms.filter((term) => labelText.includes(term));
+  // Short natural-language fragments are useful for identifying a control,
+  // but too noisy for deciding that its surrounding row/card matches the
+  // task. Scope alignment therefore requires a stable identifier or a longer
+  // phrase from the goal.
+  const scopeMatches = terms.filter(
+    (term) =>
+      !labelText.includes(term) &&
+      (term.length >= 4 || /\d/u.test(term)) &&
+      scopeText.includes(term),
   );
+  const labelWeight = Math.min(
+    84,
+    labelMatches.reduce(
+      (total, term) => total + Math.min(34, 14 + term.length * 4),
+      0,
+    ),
+  );
+  const scopeWeight = Math.min(
+    52,
+    scopeMatches.reduce(
+      (total, term) => total + Math.min(30, 8 + term.length * 2),
+      0,
+    ),
+  );
+  const hasLabel = labelMatches.length > 0;
+  const hasScope = scopeMatches.length > 0;
+  const taskAlignment: BrowserTaskAlignment = hasLabel
+    ? hasScope
+      ? 'label-and-scope'
+      : 'label'
+    : hasScope
+      ? 'scope'
+      : 'none';
+  return {
+    score: Math.round(
+      (typeof base === 'number' ? base : confidence * 50) +
+        labelWeight +
+        scopeWeight +
+        (actionable ? 18 : 0),
+    ),
+    taskAlignment,
+    matchedGoalTerms: new Set([...labelMatches, ...scopeMatches]).size,
+  };
 };
 const asRegion = (value: unknown): BrowserRegion | undefined =>
   typeof value === 'string' && regions.has(value as BrowserRegion)
@@ -117,11 +162,21 @@ const asPath = (value: unknown, prefix: string): string[] =>
       : value.filter((item): item is string => typeof item === 'string')
     : ['page'];
 
+export interface ObserveOptions {
+  includeGoalTextActions?: boolean;
+}
+
 /** Observe every accessible frame. The caller-owned Page is never navigated or mutated. */
 export const observe = async (
   page: Page,
   goal?: string,
+  options: ObserveOptions = {},
 ): Promise<BrowserSnapshot> => {
+  const terms = termsFor(goal);
+  const evaluateSource = `(${browserSnapshotSource})(${JSON.stringify({
+    terms,
+    includeGoalTextActions: options.includeGoalTextActions !== false,
+  })})`;
   const maybeFrames = page as unknown as { frames?: () => Frame[] };
   const frames =
     typeof maybeFrames.frames === 'function' ? maybeFrames.frames() : [];
@@ -129,11 +184,11 @@ export const observe = async (
   if (frames.length) {
     for (const frame of frames) {
       const path = framePath(frame);
-      const raw: unknown = await frame.evaluate(browserSnapshot);
+      const raw: unknown = await frame.evaluate(evaluateSource);
       if (isRecord(raw)) samples.push({ raw, path });
     }
   } else {
-    const raw: unknown = await page.evaluate(browserSnapshot);
+    const raw: unknown = await page.evaluate(evaluateSource);
     if (isRecord(raw)) samples.push({ raw, path: [] });
   }
   const main =
@@ -145,7 +200,6 @@ export const observe = async (
     typeof main.text !== 'string'
   )
     throw new Error('Unable to observe the current browser page.');
-  const terms = termsFor(goal);
   const actions: BrowserAction[] = [];
   const facts: BrowserFact[] = [];
   const layers: BrowserLayer[] = [];
@@ -223,6 +277,16 @@ export const observe = async (
           typeof value.localContext === 'string'
             ? value.localContext
             : undefined;
+        const relevance = score(
+          value.label,
+          value.role,
+          region,
+          localContext,
+          confidence,
+          actionable,
+          terms,
+          value.score,
+        );
         facts.push({
           id: qualify(value.id),
           label: value.label,
@@ -249,20 +313,16 @@ export const observe = async (
           ...(localContext ? { localContext } : {}),
           nameSource: asName(value.nameSource),
           semanticConfidence: confidence,
+          ...(typeof value.clickabilityEvidence === 'string'
+            ? { clickabilityEvidence: value.clickabilityEvidence }
+            : {}),
+          taskAlignment: relevance.taskAlignment,
+          matchedGoalTerms: relevance.matchedGoalTerms,
           visible: value.visible === true,
           actionable,
           covered: value.covered === true,
           disabled: value.disabled === true,
-          score: score(
-            value.label,
-            value.role,
-            region,
-            localContext,
-            confidence,
-            actionable,
-            terms,
-            value.score,
-          ),
+          score: relevance.score,
         });
       }
     if (Array.isArray(raw.actions))
@@ -286,6 +346,16 @@ export const observe = async (
           typeof value.localContext === 'string'
             ? value.localContext
             : undefined;
+        const relevance = score(
+          label,
+          typeof value.role === 'string' ? value.role : '',
+          region,
+          localContext,
+          confidence,
+          true,
+          terms,
+          value.score,
+        );
         actions.push({
           id: qualify(value.id),
           kind: value.kind as BrowserActionKind,
@@ -324,20 +394,16 @@ export const observe = async (
           ...(localContext ? { localContext } : {}),
           nameSource: asName(value.nameSource),
           semanticConfidence: confidence,
+          ...(typeof value.clickabilityEvidence === 'string'
+            ? { clickabilityEvidence: value.clickabilityEvidence }
+            : {}),
+          taskAlignment: relevance.taskAlignment,
+          matchedGoalTerms: relevance.matchedGoalTerms,
           framePath: path,
           ...(typeof value.selector === 'string'
             ? { selector: value.selector }
             : {}),
-          score: score(
-            label,
-            typeof value.role === 'string' ? value.role : '',
-            region,
-            localContext,
-            confidence,
-            true,
-            terms,
-            value.score,
-          ),
+          score: relevance.score,
           ...(typeof value.signature === 'string'
             ? { signature: value.signature }
             : {}),

@@ -73,6 +73,13 @@ const candidateFact = (
   ...(action.selected !== undefined ? { selected: action.selected } : {}),
   ...(action.expanded !== undefined ? { expanded: action.expanded } : {}),
   ...(action.effect ? { effect: action.effect } : {}),
+  ...(action.taskAlignment ? { task_alignment: action.taskAlignment } : {}),
+  ...(action.matchedGoalTerms !== undefined
+    ? { matched_goal_terms: action.matchedGoalTerms }
+    : {}),
+  ...(action.clickabilityEvidence
+    ? { clickability_evidence: action.clickabilityEvidence }
+    : {}),
 });
 
 const operationDescription = (operation: JevOperation): string =>
@@ -202,7 +209,7 @@ export const createDecisionRequest = (
         ),
         instructions: {
           rules:
-            'Choose only an offered target for this operation toward the requested task. Use the full goal, accessible label, role, group, state, effect and context. Do not explore or repair unrelated fields.',
+            'Choose only an offered target for this operation toward the requested task. Use the full goal, accessible label, role, group, state, effect, task alignment and context. Prefer label-and-scope alignment when the goal names both an action and a row/card identifier. Low-confidence text-action targets are allowed only when their label and local scope directly match the goal. Do not explore or repair unrelated fields.',
         },
       };
 
@@ -300,4 +307,15 @@ export const validChoice = (
   if (!Object.hasOwn(candidates, answer.choice))
     throw new Error('JEV selected a choice outside the offered candidates.');
   return answer.choice;
+};
+
+export const choiceProbability = (
+  answer: unknown,
+  choice: string,
+): number | undefined => {
+  if (!isRecord(answer) || !isRecord(answer.probabilities)) return undefined;
+  const value = answer.probabilities[choice];
+  return typeof value === 'number' && Number.isFinite(value)
+    ? Math.max(0, Math.min(1, value))
+    : undefined;
 };

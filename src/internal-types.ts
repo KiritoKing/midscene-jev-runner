@@ -22,6 +22,12 @@ export type BrowserNameSource =
 
 export type BrowserActionEffect = 'activate' | 'deactivate';
 
+export type BrowserTaskAlignment =
+  | 'label-and-scope'
+  | 'label'
+  | 'scope'
+  | 'none';
+
 export interface BrowserAction {
   id: string;
   node?: string;
@@ -42,6 +48,9 @@ export interface BrowserAction {
   localContext?: string;
   nameSource?: BrowserNameSource;
   semanticConfidence?: number;
+  clickabilityEvidence?: string;
+  taskAlignment?: BrowserTaskAlignment;
+  matchedGoalTerms?: number;
   effect?: BrowserActionEffect;
   framePath?: number[];
   selector?: string;
@@ -64,6 +73,9 @@ export interface BrowserFact {
   localContext?: string;
   nameSource: BrowserNameSource;
   semanticConfidence: number;
+  clickabilityEvidence?: string;
+  taskAlignment?: BrowserTaskAlignment;
+  matchedGoalTerms?: number;
   visible: boolean;
   actionable: boolean;
   covered: boolean;
@@ -172,7 +184,13 @@ export interface UsageResponse {
 export interface JevResponse {
   answers?: Record<
     string,
-    { type?: unknown; choice?: unknown; noul?: unknown }
+    {
+      type?: unknown;
+      choice?: unknown;
+      noul?: unknown;
+      probabilities?: unknown;
+      confidence?: unknown;
+    }
   >;
   usage?: UsageResponse;
 }

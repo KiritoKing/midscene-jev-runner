@@ -1,7 +1,12 @@
 {
   "$schema": "https://biomejs.dev/schemas/1.9.4/schema.json",
   "files": {
-    "ignore": ["dist/**", ".rslib/**", "node_modules/**"]
+    "ignore": [
+      "dist/**",
+      ".rslib/**",
+      "node_modules/**",
+      "src/browser/snapshot-runtime.generated.ts"
+    ]
   },
   "formatter": {
     "enabled": true,

@@ -13,11 +13,14 @@ The package provides:
 - `createJevNodes(options)`, which registers strict-schema `jevAct` and
   `jevAssert` nodes.
 
-JEV can take several observed browser actions in one `jevAct` step. It decides,
-executes, observes again, and repeats until it reaches `DONE`, `BLOCKED`, or a
-configured step or time limit. Its action space is intentionally non-text:
-click, select, scroll, wait, and dismiss. It does not generate text, fill or
-clear inputs, create navigation, route requests, or close the supplied page.
+`jevAct` is intended as a faster replacement for one atomic `aiAct` intent,
+not as an autonomous whole-test planner. It may take a short bounded sequence
+when an atomic interaction opens a menu or layer, but callers should express a
+workflow as ordered Midscene Test steps. The runner observes after each action
+until it reaches `DONE`, `BLOCKED`, or a configured limit. Its action space is
+intentionally non-text: click, select, scroll, wait, and dismiss. It does not
+generate text, fill or clear inputs, create navigation, route requests, or
+close the supplied page.
 
 ## Install
 
@@ -128,9 +131,9 @@ cases:
           prompt: The search field
           value: a caller-provided search term
       - jevAct:
-          goal: Use the current page controls to show the requested result and leave visible completion evidence.
-          maxSteps: 12
-          maxTaskMs: 120000
+          goal: Activate the search action for the current query.
+          maxSteps: 4
+          maxTaskMs: 30000
       - jevAssert:
           prompt: The requested result and completion evidence are visible.
           message: The page did not show the expected completion evidence.

@@ -239,7 +239,9 @@ export const evaluateJevAssertion = async (
   const startedAt = performance.now();
   try {
     controller.signal.throwIfAborted();
-    const snapshot = await observe(page, options.prompt);
+    const snapshot = await observe(page, options.prompt, {
+      includeGoalTextActions: false,
+    });
     controller.signal.throwIfAborted();
     const raw = await requestDecision(
       assertionBody(snapshot, options.prompt.trim(), options.context),
