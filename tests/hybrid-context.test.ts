@@ -2,9 +2,10 @@ import { chromium } from 'playwright';
 import type { Page } from 'playwright';
 import { describe, expect, it, vi } from 'vitest';
 import { runJev } from '../src';
+import { executeAction } from '../src/browser/execute';
 import { observe } from '../src/browser/observe';
 import { createDecisionRequest } from '../src/decision';
-import type { BrowserSnapshot } from '../src/internal-types';
+import type { BrowserAction, BrowserSnapshot } from '../src/internal-types';
 
 type DecisionCriteria = Record<string, { element?: string }>;
 
@@ -12,8 +13,8 @@ const response = (body: unknown) =>
   new Response(JSON.stringify(body), { status: 200 });
 
 const configureJev = (): void => {
+  vi.stubEnv('MIDSCENE_JEV_API_KEY', 'test-key');
   vi.stubEnv('OPENROUTER_API_KEY', 'test-key');
-  vi.stubEnv('MIDSCENE_JEV_API_KEY', '');
   vi.stubEnv('MIDSCENE_JEV_BASE_URL', '');
   vi.stubEnv('MIDSCENE_JEV_MODEL_NAME', '');
 };
@@ -226,6 +227,30 @@ describe('hybrid browser context', () => {
         expect.objectContaining({ label: 'Covered secure sync' }),
       );
     });
+  });
+
+  it('fails closed for a forged text action without calling locator.fill', async () => {
+    const locator = {
+      first: () => locator,
+      evaluate: vi.fn(async () => true),
+      fill: vi.fn(async () => undefined),
+    };
+    const frame = { locator: vi.fn(() => locator) };
+    const page = {
+      mainFrame: () => frame,
+      keyboard: { press: vi.fn(async () => undefined) },
+    } as unknown as Page;
+    const action = {
+      id: 'forged-text-action',
+      node: '1',
+      kind: 'fill',
+      label: 'Account name',
+    } as unknown as BrowserAction;
+
+    await expect(
+      executeAction(page, action, new AbortController().signal),
+    ).rejects.toThrow('Unsupported JEV browser action: fill');
+    expect(locator.fill).not.toHaveBeenCalled();
   });
 
   it('offers WAIT only while the page exposes observable loading state', async () => {
@@ -498,7 +523,7 @@ describe('hybrid browser context', () => {
     });
   });
 
-  it('models selected checkbox options as deactivation and hides them unless removal is requested', async () => {
+  it('offers both activation and deactivation controls regardless of goal wording', async () => {
     await withPage(async (page) => {
       await page.setContent(`
         <main>
@@ -549,65 +574,27 @@ describe('hybrid browser context', () => {
         }),
       );
 
-      const preserveRequest = createDecisionRequest(
-        snapshot,
+      for (const goal of [
         'Keep current selections and select New mobile alert',
-        [],
-      );
-      const preserveLabels = Object.values(
-        preserveRequest.targets.CLICK ?? {},
-      ).map((action) => action.label);
-      expect(preserveLabels).toContain('New mobile alert');
-      expect(preserveLabels).not.toContain('Existing email');
-      expect(preserveLabels).not.toContain('Existing custom channel');
-      expect(preserveLabels).not.toContain('Existing data-state channel');
-      expect(preserveLabels).not.toContain('Existing pressed channel');
-
-      const removeRequest = createDecisionRequest(
-        snapshot,
         'Remove Existing email from the selected channels',
-        [],
-      );
-      expect(Object.values(removeRequest.targets.CLICK ?? {})).toContainEqual(
-        expect.objectContaining({
-          label: 'Existing email',
-          effect: 'deactivate',
-        }),
-      );
-
-      const fieldRemovalRequest = createDecisionRequest(
-        snapshot,
-        'Remove the selected values from Notification channels',
-        [],
-      );
-      expect(Object.values(fieldRemovalRequest.targets.CLICK ?? {})).toEqual(
-        expect.arrayContaining([
-          expect.objectContaining({
-            label: 'Existing data-state channel',
-            effect: 'deactivate',
-          }),
-          expect.objectContaining({
-            label: 'Existing pressed channel',
-            effect: 'deactivate',
-          }),
-        ]),
-      );
-
-      await page.locator('input').first().uncheck();
-      const removedSnapshot = await observe(
-        page,
-        'Remove Existing email from the selected channels',
-      );
-      const removedRequest = createDecisionRequest(
-        removedSnapshot,
-        'Remove Existing email from the selected channels',
-        [],
-      );
-      expect(
-        Object.values(removedRequest.targets.CLICK ?? {}),
-      ).not.toContainEqual(
-        expect.objectContaining({ label: 'Existing email' }),
-      );
+        'Keep only New mobile alert',
+        '不要接收邮件通知',
+        'Remove all saved addresses and enable New mobile alert',
+      ]) {
+        const request = createDecisionRequest(snapshot, goal);
+        const labels = Object.values(request.targets.CLICK ?? {}).map(
+          (action) => action.label,
+        );
+        expect(labels).toEqual(
+          expect.arrayContaining([
+            'Existing email',
+            'New mobile alert',
+            'Existing custom channel',
+            'Existing data-state channel',
+            'Existing pressed channel',
+          ]),
+        );
+      }
     });
   });
 
@@ -652,13 +639,13 @@ describe('hybrid browser context', () => {
     });
   });
 
-  it('binds an ordinary required sibling to its field and focuses the next decision on that field', async () => {
+  it('reports only observable validation failures while retaining editable facts', async () => {
     await withPage(async (page) => {
       await page.setContent(`
         <main>
           <div class="form-item">
             <label for="account-identifiers">Account identifiers</label>
-            <textarea id="account-identifiers" aria-describedby="account-error"></textarea>
+            <textarea id="account-identifiers" required aria-invalid="true" aria-errormessage="account-error"></textarea>
             <label><input type="checkbox" />Use generated identifiers</label>
             <span id="account-error" class="error-message">此字段必填</span>
           </div>
@@ -667,18 +654,19 @@ describe('hybrid browser context', () => {
           </div>
           <div class="form-item">
             <label for="department-code">Department code</label>
-            <input id="department-code" />
+            <input id="department-code" required />
             <span>This field is required</span>
           </div>
           <div class="form-item">
             <label for="display-mode">Display mode</label>
             <select id="display-mode"><option>Compact</option></select>
-            <span>请选择适合你的显示方式</span>
+            <span role="alert">This field is required</span>
           </div>
         </main>
       `);
 
       const snapshot = await observe(page, 'Complete all required fields');
+      expect(snapshot.text).toContain('This field is required');
       expect(snapshot.validationIssues).toContainEqual(
         expect.objectContaining({
           field: 'Account identifiers',
@@ -694,22 +682,36 @@ describe('hybrid browser context', () => {
         }),
       );
 
-      const request = createDecisionRequest(
-        snapshot,
-        'Complete all required fields',
-        [],
+      expect(snapshot.facts).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            label: 'Account identifiers',
+            kind: 'fill',
+          }),
+          expect.objectContaining({ label: 'Department code', kind: 'fill' }),
+        ]),
       );
-      expect(Object.values(request.targets.TYPE_TEXT ?? {})).toContainEqual(
-        expect.objectContaining({ label: 'Account identifiers' }),
-      );
-      expect(Object.values(request.targets.CLICK ?? {})).not.toContainEqual(
-        expect.objectContaining({ label: 'Use generated identifiers' }),
-      );
-      expect(Object.values(request.targets.CLICK ?? {})).not.toContainEqual(
-        expect.objectContaining({ label: 'Unrelated optional benefit' }),
+      expect(snapshot.actions).not.toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ kind: 'fill' }),
+          expect.objectContaining({ kind: 'clear' }),
+        ]),
       );
       expect(snapshot.validationIssues).not.toContainEqual(
         expect.objectContaining({ field: 'Display mode' }),
+      );
+      expect(snapshot.validationIssues).not.toContainEqual(
+        expect.objectContaining({ field: 'Use generated identifiers' }),
+      );
+      const request = createDecisionRequest(
+        snapshot,
+        'Complete all required fields',
+      );
+      expect(Object.values(request.targets.CLICK ?? {})).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ label: 'Use generated identifiers' }),
+          expect.objectContaining({ label: 'Unrelated optional benefit' }),
+        ]),
       );
       expect(request.body.state.validation_issues).toEqual(
         expect.arrayContaining([

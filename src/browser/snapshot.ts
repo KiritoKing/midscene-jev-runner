@@ -202,6 +202,7 @@ export function browserSnapshot(): unknown {
       clean(heading?.textContent || container.textContent, 180) || undefined
     );
   };
+  let textTruncated = false;
   const contentText = (root: Element): string => {
     const clone = root.cloneNode(true) as Element;
     for (const excluded of Array.from(
@@ -210,7 +211,15 @@ export function browserSnapshot(): unknown {
       ),
     ))
       excluded.remove();
-    return clean(clone.textContent, maxText);
+    const pieces: string[] = [];
+    const walker = document.createTreeWalker(clone, NodeFilter.SHOW_TEXT);
+    while (walker.nextNode()) {
+      const value = (walker.currentNode.textContent || '').trim();
+      if (value) pieces.push(value);
+    }
+    const normalized = pieces.join(' ').replace(/\s+/gu, ' ').trim();
+    textTruncated ||= normalized.length > maxText;
+    return normalized.slice(0, maxText);
   };
   const escapeCss = (value: string) =>
     CSS.escape
@@ -430,6 +439,7 @@ export function browserSnapshot(): unknown {
   const facts: Array<Record<string, unknown>> = [];
   const actions: Array<Record<string, unknown>> = [];
   let found = 0;
+  let foundFacts = 0;
   const addAction = (action: Record<string, unknown>) => {
     found += 1;
     if (actions.length < maxActions) actions.push(action);
@@ -446,11 +456,12 @@ export function browserSnapshot(): unknown {
   for (const e of all) {
     if (
       !eligible(e) ||
-      facts.length >= maxFacts ||
       (e instanceof HTMLInputElement &&
         ['password', 'file', 'hidden'].includes(e.type))
     )
       continue;
+    foundFacts += 1;
+    if (facts.length >= maxFacts) continue;
     const node = id(e);
     const named = name(e);
     const nativeRole = role(e);
@@ -609,7 +620,10 @@ export function browserSnapshot(): unknown {
           });
       continue;
     }
-    const actionKind = editable ? 'fill' : 'click';
+    // Editable controls are observation facts for the caller's aiInput path.
+    // This runner never synthesizes, replaces, or clears free-form text.
+    if (editable) continue;
+    const actionKind = 'click';
     addAction({
       id: node,
       ...base,
@@ -624,14 +638,6 @@ export function browserSnapshot(): unknown {
         effect,
       ),
     });
-    if (editable && current)
-      addAction({
-        id: `${node}:clear`,
-        ...base,
-        kind: 'clear',
-        label: `Clear ${named.label}`,
-        signature: sign('clear', r, named.label, where, groupSignature),
-      });
   }
   for (const e of all) {
     const style = getComputedStyle(e);
@@ -704,32 +710,19 @@ export function browserSnapshot(): unknown {
   }
   const text = contentText(activeLayer?.element || document.body);
   const requiredPattern =
-    /(?:\brequired\b|must\s+(?:be\s+)?(?:filled|provided|selected)|cannot\s+be\s+empty|必填|不能为空|请填写|请选择)/iu;
-  const plainRequiredPattern =
     /(?:\brequired\b|must\s+(?:be\s+)?(?:filled|provided|selected)|cannot\s+be\s+empty|必填|不能为空)/iu;
+  const errorPattern =
+    /(?:\binvalid\b|\berror\b|\bmust\s+(?:be\s+)?(?:filled|provided|selected)\b|cannot\s+be\s+empty|必填|不能为空|格式错误|无效)/iu;
   const controlSelector =
     'input:not([type="hidden"]),textarea,select,[contenteditable="true"],[role="textbox"],[role="combobox"],[role="checkbox"],[role="radio"]';
-  const validationSelector =
-    '[aria-live="assertive"],[aria-invalid="true"],[role="alert"],[class*="message-error" i],[class*="error-message" i],[class*="notification-error" i],[class*="alert-error" i],[class*="form-item-message" i],[class*="form-message" i][class*="error" i],[class*="form-item-explain" i]';
   const validations: Array<Record<string, unknown>> = [];
   const validationKeys = new Set<string>();
   for (const e of all) {
     if (!visible(e) || !viewport(e)) continue;
     const rawMessage = textOf(e);
-    const explicit = e.matches(validationSelector);
     const fieldContainer = e.closest(
       '[role="group"],fieldset,[class*="form-item" i],[class*="form-field" i],li,tr,[role="row"]',
     );
-    const fieldControls = fieldContainer
-      ? Array.from(fieldContainer.querySelectorAll(controlSelector))
-      : [];
-    const plainRequired =
-      e.children.length === 0 &&
-      rawMessage.length > 0 &&
-      rawMessage.length <= 300 &&
-      plainRequiredPattern.test(rawMessage) &&
-      fieldControls.length === 1;
-    if (!explicit && !plainRequired) continue;
     const container = fieldContainer || e.closest('form') || parent(e);
     const controls = e.matches(controlSelector)
       ? [e]
@@ -745,6 +738,28 @@ export function browserSnapshot(): unknown {
       (e.matches(controlSelector) ? e : undefined) ||
       referencedControl ||
       (controls.length === 1 ? controls[0] : undefined);
+    const nativeInvalid =
+      control instanceof HTMLInputElement ||
+      control instanceof HTMLTextAreaElement ||
+      control instanceof HTMLSelectElement
+        ? !control.validity.valid
+        : false;
+    const ariaInvalid =
+      control?.getAttribute('aria-invalid') === 'true' ||
+      e.getAttribute('aria-invalid') === 'true';
+    const explicitlyAssociated = Boolean(
+      e.id &&
+        control &&
+        (control.getAttribute('aria-errormessage') || '')
+          .split(/\s+/u)
+          .includes(e.id),
+    );
+    // A class name, an alert role, or required-looking help text describes
+    // presentation only. Report a validation issue only when the control is
+    // observably invalid, or when an error message is explicitly associated
+    // with that control.
+    const explicitError = explicitlyAssociated && errorPattern.test(rawMessage);
+    if (!nativeInvalid && !ariaInvalid && !explicitError) continue;
     const describedIds = clean(
       control?.getAttribute('aria-errormessage') ||
         control?.getAttribute('aria-describedby'),
@@ -760,9 +775,7 @@ export function browserSnapshot(): unknown {
     const message =
       describedMessage ||
       rawMessage ||
-      (e.getAttribute('aria-invalid') === 'true'
-        ? `${name(e).label} is invalid`
-        : '');
+      (ariaInvalid || nativeInvalid ? `${name(e).label} is invalid` : '');
     if (!message) continue;
     const labelElement = container?.querySelector(
       'legend,label,[class*="label" i],[data-label]',
@@ -894,6 +907,8 @@ export function browserSnapshot(): unknown {
       fact.region,
       clean(String(fact.localContext || ''), 120).toLocaleLowerCase(),
       fact.currentValue,
+      fact.checked,
+      fact.selected,
       fact.expanded,
     ])
     .sort((left, right) =>
@@ -960,5 +975,7 @@ export function browserSnapshot(): unknown {
       : {}),
     loading,
     omittedActions: Math.max(0, found - maxActions),
+    omittedFacts: Math.max(0, foundFacts - facts.length),
+    textTruncated,
   };
 }

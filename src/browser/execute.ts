@@ -113,7 +113,6 @@ const isFresh = async (page: Page, action: BrowserAction): Promise<boolean> => {
 export const executeAction = async (
   page: Page,
   action: BrowserAction,
-  text: string | undefined,
   signal: AbortSignal,
 ): Promise<boolean> => {
   if (!(await isFresh(page, action))) return false;
@@ -145,16 +144,12 @@ export const executeAction = async (
   } else {
     const locator = targetLocator(frame, action);
     if (action.kind === 'click') await locator.click({ timeout: 5_000 });
-    else if (action.kind === 'fill') {
-      if (!text)
-        throw new Error('JEV text generation returned no usable value.');
-      await locator.fill(text, { timeout: 5_000 });
-    } else if (action.kind === 'select') {
+    else if (action.kind === 'select') {
       if (action.value === undefined)
         throw new Error('JEV select action had no option value.');
       await locator.selectOption(action.value, { timeout: 5_000 });
     } else {
-      await locator.fill('', { timeout: 5_000 });
+      throw new Error(`Unsupported JEV browser action: ${action.kind}`);
     }
   }
   const settleMs =

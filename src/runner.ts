@@ -2,33 +2,24 @@ import type { Page } from 'playwright';
 import { executeAction } from './browser/execute';
 import { observe } from './browser/observe';
 import {
-  DEFAULT_JEV_BASE_URL,
   DEFAULT_MAX_NO_PROGRESS_STEPS,
   DEFAULT_MAX_STEPS,
   DEFAULT_MAX_TASK_MS,
   DEFAULT_REQUEST_TIMEOUT_MS,
+  MAX_GOAL_LENGTH,
   MAX_RECENT_ACTIONS,
 } from './constants';
 import { createDecisionRequest, validChoice } from './decision';
+import { requestDecision } from './decision-client';
 import { JevRunError } from './errors';
-import { requestJson } from './http';
 import type {
   BrowserAction,
   BrowserSnapshot,
-  BrowserValidationIssue,
   JevRecentAction,
   JevResponse,
 } from './internal-types';
-import { generateText } from './text-model';
 import type { JevOperation, JevRunOptions, JevRunResult } from './types';
-import { endpoint, tokenCount, waitForAbortable } from './utils';
-
-const isTransientDecisionError = (error: unknown): boolean =>
-  error instanceof Error &&
-  (error.message === 'JEV request timed out.' ||
-    /JEV request failed with HTTP (?:408|429|500|502|503|504)\./u.test(
-      error.message,
-    ));
+import { tokenCount } from './utils';
 
 const actionEffectAchieved = (
   action: BrowserAction,
@@ -38,60 +29,16 @@ const actionEffectAchieved = (
   const fact = snapshot.facts.find((item) => item.id === action.id);
   const value = fact?.checked ?? fact?.selected;
   if (value === undefined) return undefined;
-  const active = ['true', 'checked', 'selected', 'on'].includes(value);
-  return action.effect === 'activate' ? active : !active;
-};
-
-const actionEffectRequested = (
-  action: BrowserAction,
-  goal: string,
-): boolean => {
-  if (!action.effect) return false;
-  const normalizedGoal = goal.replace(/\s+/gu, ' ').trim().toLocaleLowerCase();
-  const label = action.label.replace(/\s+/gu, ' ').trim().toLocaleLowerCase();
-  if (label.length > 1 && normalizedGoal.includes(label)) return true;
-  return (
-    /(?:\ball\b|全部|所有)/iu.test(normalizedGoal) &&
-    /(?:\bselect\b|\bcheck\b|\benable\b|\bactivate\b|选择|勾选|启用|开启)/iu.test(
-      normalizedGoal,
-    )
+  const active = ['true', 'checked', 'selected', 'on', 'active'].includes(
+    value.toLocaleLowerCase(),
   );
+  return action.effect === 'activate' ? active : !active;
 };
 
 const normalized = (value: string | undefined): string =>
   (value || '').replace(/\s+/gu, ' ').trim().toLocaleLowerCase();
 const actionGroupKey = (action: BrowserAction): string | undefined =>
   normalized(action.groupLabel) || action.groupId;
-
-const actionAddressesValidation = (
-  action: BrowserAction,
-  issue: BrowserValidationIssue,
-): boolean => {
-  if (
-    issue.controlId &&
-    (action.id === issue.controlId ||
-      action.id.startsWith(`${issue.controlId}:`))
-  )
-    return true;
-  const field = normalized(issue.field);
-  const label = normalized(action.label);
-  if (field && (label.includes(field) || field.includes(label))) return true;
-  return Boolean(
-    !issue.controlId && issue.groupId && action.groupId === issue.groupId,
-  );
-};
-
-const validationFingerprint = (snapshot: BrowserSnapshot): string =>
-  JSON.stringify(
-    snapshot.validationIssues
-      .map((issue) => [
-        normalized(issue.field) || normalized(issue.message),
-        issue.required,
-      ])
-      .sort((left, right) =>
-        JSON.stringify(left).localeCompare(JSON.stringify(right)),
-      ),
-  );
 
 /** Run JEV against a caller-owned Playwright Page. */
 export const runJev = async (
@@ -100,13 +47,10 @@ export const runJev = async (
 ): Promise<JevRunResult> => {
   if (!page || typeof page !== 'object')
     throw new Error('runJev() requires a Playwright Page.');
-  if (!options || typeof options !== 'object' || !options.goal?.trim())
+  if (!options || typeof options.goal !== 'string' || !options.goal.trim())
     throw new Error('runJev() requires a non-empty goal.');
-  const apiKey =
-    process.env.OPENROUTER_API_KEY || process.env.MIDSCENE_JEV_API_KEY;
-  if (!apiKey)
-    throw new Error('OPENROUTER_API_KEY or MIDSCENE_JEV_API_KEY is required.');
-  const baseUrl = process.env.MIDSCENE_JEV_BASE_URL || DEFAULT_JEV_BASE_URL;
+  if (options.goal.length > MAX_GOAL_LENGTH)
+    throw new Error(`JEV goal must not exceed ${MAX_GOAL_LENGTH} characters.`);
   const fetchImpl = options.fetch ?? globalThis.fetch;
   if (typeof fetchImpl !== 'function')
     throw new Error('No fetch implementation is available.');
@@ -132,11 +76,24 @@ export const runJev = async (
   else parentSignal?.addEventListener('abort', abort, { once: true });
   const signal = controller.signal;
   const startedAt = performance.now();
+  const taskTimer = setTimeout(
+    () => controller.abort(new Error('JEV task time budget was exhausted.')),
+    maxTaskMs,
+  );
+  const verify = async (): Promise<boolean> => {
+    signal.throwIfAborted();
+    const verified = await options.verifyCompletion?.({
+      page,
+      goal: options.goal,
+      signal,
+    });
+    signal.throwIfAborted();
+    return verified === true;
+  };
   const result: JevRunResult = {
     steps: 0,
     elapsedMs: 0,
     usage: { calls: 0, inputTokens: 0, outputTokens: 0, cost: 0 },
-    textUsage: { calls: 0, inputTokens: 0, outputTokens: 0 },
     staleDecisions: 0,
     actionErrors: 0,
     rejectedCompletions: 0,
@@ -145,6 +102,7 @@ export const runJev = async (
   };
   const finish = () => {
     result.elapsedMs = Math.round(performance.now() - startedAt);
+    clearTimeout(taskTimer);
     parentSignal?.removeEventListener('abort', abort);
     return result;
   };
@@ -157,9 +115,9 @@ export const runJev = async (
   };
 
   try {
+    signal.throwIfAborted();
     let snapshot = await observe(page, options.goal);
     let noProgressSteps = 0;
-    let validationDetourSteps = 0;
     let recoveryEpoch = 0;
     const visitedProgressStates = new Set<string>([snapshot.progressMarker]);
     const progressStateOrder = [snapshot.progressMarker];
@@ -186,11 +144,7 @@ export const runJev = async (
         throw new Error('JEV task time budget was exhausted.');
       // A page transition may settle after the post-action check. Verify once
       // more before requesting a new decision to avoid unnecessary mutation.
-      if (
-        step > 1 &&
-        options.verifyCompletion &&
-        (await options.verifyCompletion({ page, goal: options.goal, signal }))
-      ) {
+      if (step > 1 && options.verifyCompletion && (await verify())) {
         options.observer?.({ type: 'completion', step, verified: true });
         result.completionVerified = true;
         return finish();
@@ -201,42 +155,28 @@ export const runJev = async (
         recentActions,
         recoveryEpoch,
       );
-      let raw: unknown;
-      for (let attempt = 1; attempt <= 2; attempt += 1) {
-        try {
-          raw = await requestJson(
-            fetchImpl,
-            endpoint(baseUrl, 'decisions'),
-            {
-              method: 'POST',
-              headers: {
-                Authorization: `Bearer ${apiKey}`,
-                'Content-Type': 'application/json',
-              },
-              body: JSON.stringify(request.body),
-            },
-            signal,
-            requestTimeoutMs,
-          );
-          break;
-        } catch (error) {
-          if (attempt === 2 || !isTransientDecisionError(error)) throw error;
-          await waitForAbortable(250, signal);
-        }
-      }
+      const raw = await requestDecision(request.body, signal, {
+        fetch: fetchImpl,
+        requestTimeoutMs,
+      });
       result.usage.calls += 1;
+      signal.throwIfAborted();
       const response = raw as JevResponse;
-      result.usage.inputTokens += tokenCount(response.usage?.input_tokens);
-      result.usage.outputTokens += tokenCount(response.usage?.output_tokens);
-      result.usage.cost += tokenCount(response.usage?.cost);
+      result.usage.inputTokens += tokenCount(
+        response?.usage?.input_tokens ?? response?.usage?.prompt_tokens,
+      );
+      result.usage.outputTokens += tokenCount(
+        response?.usage?.output_tokens ?? response?.usage?.completion_tokens,
+      );
+      result.usage.cost += tokenCount(response?.usage?.cost);
       const operation = validChoice(
-        response.answers?.operation,
+        response?.answers?.operation,
         request.operations,
       ) as JevOperation;
       const candidates = request.targets[operation];
       const target = candidates
         ? validChoice(
-            response.answers?.[`${operation.toLowerCase()}_target`],
+            response?.answers?.[`${operation.toLowerCase()}_target`],
             candidates,
           )
         : undefined;
@@ -252,10 +192,12 @@ export const runJev = async (
       });
 
       if (operation === 'DONE') {
-        const verified = options.verifyCompletion
-          ? await options.verifyCompletion({ page, goal: options.goal, signal })
-          : true;
-        options.observer?.({ type: 'completion', step, verified });
+        const verified = options.verifyCompletion ? await verify() : true;
+        options.observer?.({
+          type: 'completion',
+          step,
+          verified: Boolean(options.verifyCompletion) && verified,
+        });
         if (verified) {
           result.completionVerified = Boolean(options.verifyCompletion);
           return finish();
@@ -280,11 +222,7 @@ export const runJev = async (
       if (operation === 'BLOCKED') {
         if (!options.verifyCompletion)
           throw new Error('JEV reported that the goal is blocked.');
-        const verified = await options.verifyCompletion({
-          page,
-          goal: options.goal,
-          signal,
-        });
+        const verified = await verify();
         if (verified) {
           options.observer?.({ type: 'completion', step, verified: true });
           result.completionVerified = true;
@@ -310,25 +248,9 @@ export const runJev = async (
       if (!action) throw new Error('JEV selected an action without a target.');
 
       const previousProgressMarker = snapshot.progressMarker;
-      const previousValidationFingerprint = validationFingerprint(snapshot);
-      const addressedValidation = snapshot.validationIssues.some((issue) =>
-        actionAddressesValidation(action, issue),
-      );
       let fresh: boolean;
       try {
-        let text: string | undefined;
-        if (action.kind === 'fill')
-          text = await generateText(
-            fetchImpl,
-            action,
-            snapshot,
-            options.goal,
-            signal,
-            requestTimeoutMs,
-            result.textUsage,
-            recentActions,
-          );
-        fresh = await executeAction(page, action, text, signal);
+        fresh = await executeAction(page, action, signal);
       } catch (error) {
         const message =
           error instanceof Error
@@ -356,14 +278,19 @@ export const runJev = async (
           progressed: false,
           error: message,
         });
+        // A browser error may arrive after dispatch. Read back once, but do not
+        // let the loop repeat a potentially completed side effect.
+        signal.throwIfAborted();
         snapshot = await observe(page, options.goal);
-        rememberProgressState(snapshot.progressMarker);
-        noProgressSteps += 1;
-        if (noProgressSteps >= maxNoProgressSteps)
-          throw new Error(
-            'JEV made no visible progress within its recovery budget.',
-          );
-        continue;
+        if (options.verifyCompletion && (await verify())) {
+          result.completionVerified = true;
+          options.observer?.({ type: 'completion', step, verified: true });
+          return finish();
+        }
+        throw new Error(
+          'JEV browser action failed with an uncertain outcome; no action was retried.',
+          { cause: error },
+        );
       }
       if (!fresh) {
         result.staleDecisions += 1;
@@ -398,24 +325,11 @@ export const runJev = async (
       snapshot = await observe(page, options.goal);
       const repeatedState = rememberProgressState(snapshot.progressMarker);
       const feedback = snapshot.alerts;
-      const currentValidationFingerprint = validationFingerprint(snapshot);
-      const unresolvedValidationDetour =
-        previousValidationFingerprint !== '[]' &&
-        previousValidationFingerprint === currentValidationFingerprint &&
-        !addressedValidation;
-      validationDetourSteps = unresolvedValidationDetour
-        ? validationDetourSteps + 1
-        : 0;
       const markerProgressed =
         snapshot.progressMarker !== previousProgressMarker;
       const effectAchieved = actionEffectAchieved(action, snapshot);
       const effectMismatch = effectAchieved === false;
-      const requestedStateProgress =
-        effectAchieved === true && actionEffectRequested(action, options.goal);
-      const progressed =
-        feedback.length === 0 &&
-        !effectMismatch &&
-        ((markerProgressed && !repeatedState) || requestedStateProgress);
+      const progressed = !effectMismatch && markerProgressed && !repeatedState;
       const effectError = effectMismatch
         ? `The target did not reach the requested ${action.effect} state.`
         : undefined;
@@ -423,12 +337,7 @@ export const runJev = async (
         operation,
         target,
         label: action.label,
-        outcome:
-          feedback.length > 0
-            ? 'validation-error'
-            : progressed
-              ? 'progressed'
-              : 'no-progress',
+        outcome: progressed ? 'progressed' : 'no-progress',
         fromProgressMarker: previousProgressMarker,
         toProgressMarker: snapshot.progressMarker,
         signature: action.signature || `${operation}:${target || action.id}`,
@@ -447,18 +356,11 @@ export const runJev = async (
         progressed,
         ...(effectError ? { error: effectError } : {}),
       });
-      if (
-        options.verifyCompletion &&
-        (await options.verifyCompletion({ page, goal: options.goal, signal }))
-      ) {
+      if (options.verifyCompletion && (await verify())) {
         options.observer?.({ type: 'completion', step, verified: true });
         result.completionVerified = true;
         return finish();
       }
-      if (validationDetourSteps >= 2)
-        throw new Error(
-          'JEV repeatedly acted outside the field with unresolved validation.',
-        );
       if (progressed) recoveryEpoch += 1;
       noProgressSteps = progressed ? 0 : noProgressSteps + 1;
       if (noProgressSteps >= maxNoProgressSteps)

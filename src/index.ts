@@ -1,9 +1,18 @@
+export { evaluateJevAssertion } from './assertion';
 export { JevRunError } from './errors';
 export { createJevNodes } from './node';
 export { runJev } from './runner';
-export { jevActInputSchema } from './schema';
-export type { JevActNodeInput } from './schema';
+export {
+  jevActInputSchema,
+  jevAssertInputSchema,
+  jevAssertOptionsInputSchema,
+} from './schema';
+export type { JevActNodeInput, JevAssertNodeInput } from './schema';
 export type {
+  JevAssertionOptions,
+  JevAssertionPolicy,
+  JevAssertionResult,
+  JevAssertionVerdict,
   JevCompletionVerifier,
   JevNodeOptions,
   JevObserver,
@@ -11,6 +20,5 @@ export type {
   JevOperation,
   JevRunOptions,
   JevRunResult,
-  JevTextUsage,
   JevUsage,
 } from './types';

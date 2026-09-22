@@ -2,12 +2,12 @@ import type { JevOperation } from './types';
 
 export type BrowserActionKind =
   | 'click'
-  | 'fill'
   | 'select'
-  | 'clear'
   | 'scroll'
   | 'wait'
   | 'dismiss';
+
+export type BrowserFactKind = BrowserActionKind | 'fill';
 
 export type BrowserRegion = 'dialog' | 'main' | 'navigation' | 'content';
 
@@ -53,7 +53,7 @@ export interface BrowserFact {
   id: string;
   label: string;
   role: string;
-  kind: BrowserActionKind;
+  kind: BrowserFactKind;
   currentValue?: string;
   checked?: string;
   selected?: string;
@@ -113,6 +113,8 @@ export interface BrowserSnapshot {
   activeLayer?: BrowserActiveLayer;
   loading: boolean;
   omittedActions: number;
+  omittedFacts?: number;
+  textTruncated?: boolean;
 }
 
 export interface JevRecentAction {
@@ -135,11 +137,19 @@ export interface JevRecentAction {
   group?: string;
 }
 
-interface JevQuestion {
+interface JevChoiceQuestion {
   type: 'choice';
   criteria: Record<string, unknown>;
   instructions: Record<string, unknown>;
 }
+
+interface JevNoulQuestion {
+  type: 'noul';
+  criteria?: Record<'true' | 'false', string>;
+  instructions: string | Record<string, unknown>;
+}
+
+export type JevQuestion = JevChoiceQuestion | JevNoulQuestion;
 
 export interface DecisionRequest {
   body: {
@@ -160,11 +170,9 @@ export interface UsageResponse {
 }
 
 export interface JevResponse {
-  answers?: Record<string, { type?: unknown; choice?: unknown }>;
-  usage?: UsageResponse;
-}
-
-export interface TextResponse {
-  choices?: Array<{ message?: { content?: unknown } }>;
+  answers?: Record<
+    string,
+    { type?: unknown; choice?: unknown; noul?: unknown }
+  >;
   usage?: UsageResponse;
 }

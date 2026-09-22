@@ -63,8 +63,7 @@ const pageFor = (
 };
 
 const setupJevEnvironment = () => {
-  vi.stubEnv('OPENROUTER_API_KEY', 'secret-key-that-must-not-leak');
-  vi.stubEnv('MIDSCENE_JEV_API_KEY', '');
+  vi.stubEnv('MIDSCENE_JEV_API_KEY', 'secret-key-that-must-not-leak');
   vi.stubEnv('MIDSCENE_JEV_BASE_URL', '');
   vi.stubEnv('MIDSCENE_JEV_MODEL_NAME', '');
 };
@@ -75,7 +74,37 @@ afterEach(() => {
 });
 
 describe('JEV runner', () => {
-  it('uses OpenRouter Decisions, verifies DONE, and keeps sensitive URL parameters out of requests', async () => {
+  it('rejects an overlong action goal instead of truncating its constraints', async () => {
+    const { page, evaluate } = pageFor([browserSnapshot()]);
+    const fetch = vi.fn<typeof globalThis.fetch>();
+    await expect(
+      runJev(page, { goal: 'x'.repeat(4001), fetch }),
+    ).rejects.toThrow('must not exceed');
+    expect(evaluate).not.toHaveBeenCalled();
+    expect(fetch).not.toHaveBeenCalled();
+  });
+
+  it('honors cancellation that arrives during an independent completion check', async () => {
+    setupJevEnvironment();
+    const { page } = pageFor([browserSnapshot()]);
+    const controller = new AbortController();
+    const fetch = vi.fn(async () =>
+      response({ answers: { operation: { type: 'choice', choice: 'DONE' } } }),
+    );
+    await expect(
+      runJev(page, {
+        goal: 'Complete',
+        signal: controller.signal,
+        fetch,
+        verifyCompletion: async () => {
+          controller.abort(new Error('caller stopped'));
+          return true;
+        },
+      }),
+    ).rejects.toThrow('caller stopped');
+  });
+
+  it('uses official TypeSafe, verifies DONE, and keeps sensitive URL parameters out of requests', async () => {
     setupJevEnvironment();
     const { page } = pageFor([browserSnapshot()]);
     const fetch = vi.fn<typeof globalThis.fetch>(async () =>
@@ -110,11 +139,11 @@ describe('JEV runner', () => {
       }),
     );
     expect(fetch).toHaveBeenCalledWith(
-      'https://openrouter.ai/api/alpha/decisions',
+      'https://api.typesafe.ai/v1/systemone',
       expect.objectContaining({ method: 'POST' }),
     );
     const request = JSON.parse(String(fetch.mock.calls[0]?.[1]?.body));
-    expect(request.model).toBe('~typesafe/jev-latest');
+    expect(request.model).toBe('jev-latest');
     expect(request.state.goal).toBe('Finish the form');
     expect(request.state.page.url).toBe('https://example.test/path');
     expect(JSON.stringify(request)).not.toContain('token=not-for-logs');
@@ -206,95 +235,96 @@ describe('JEV runner', () => {
     expect(locator.click).not.toHaveBeenCalled();
   });
 
-  it('replans after a browser action error instead of failing the run', async () => {
+  it('reads back but never replays an uncertain browser action', async () => {
     setupJevEnvironment();
-    const { page, locator } = pageFor([
+    const { page, locator, evaluate } = pageFor([
       browserSnapshot('before'),
       browserSnapshot('after-error'),
     ]);
-    locator.click.mockRejectedValueOnce(new Error('element is obscured'));
-    const fetch = vi
-      .fn()
-      .mockResolvedValueOnce(
-        response({
-          answers: {
-            operation: { type: 'choice', choice: 'CLICK' },
-            click_target: { type: 'choice', choice: '1' },
-          },
-        }),
-      )
-      .mockImplementationOnce(async (_input, init) => {
-        const request = JSON.parse(String(init?.body));
-        expect(request.state.recent_actions).toEqual([
-          expect.objectContaining({
-            operation: 'CLICK',
-            target: '1',
-            outcome: 'failed',
-            error: 'element is obscured',
-          }),
-        ]);
-        return response({
-          answers: { operation: { type: 'choice', choice: 'DONE' } },
-        });
-      });
-
-    const result = await runJev(page, { goal: 'Continue', fetch });
-
-    expect(result).toMatchObject({ steps: 2, actionErrors: 1 });
-    expect(locator.click).toHaveBeenCalledTimes(1);
-  });
-
-  it('replans when text generation does not return usable JSON', async () => {
-    setupJevEnvironment();
-    vi.stubEnv('MIDSCENE_MODEL_API_KEY', 'local-text-key');
-    vi.stubEnv('MIDSCENE_MODEL_BASE_URL', 'https://local-model.test/v1');
-    vi.stubEnv('MIDSCENE_MODEL_NAME', 'local-text-model');
-    const field = {
-      ...browserSnapshot('field'),
-      actions: [
-        {
-          id: 'field',
-          node: '12',
-          guard: 'field',
-          kind: 'fill' as const,
-          label: 'Display name',
-          role: 'input',
-          currentValue: '',
+    locator.click.mockRejectedValueOnce(
+      new Error('click timed out after dispatch'),
+    );
+    const fetch = vi.fn(async () =>
+      response({
+        answers: {
+          operation: { type: 'choice', choice: 'CLICK' },
+          click_target: { type: 'choice', choice: '1' },
         },
-      ],
-    };
-    const { page, locator } = pageFor([field, field]);
-    let decisions = 0;
-    const fetch = vi.fn<typeof globalThis.fetch>(async (input, init) => {
-      if (String(input).endsWith('/chat/completions'))
-        return response({ choices: [{ message: { content: 'not-json' } }] });
-      decisions += 1;
-      if (decisions === 1)
-        return response({
-          answers: {
-            operation: { type: 'choice', choice: 'TYPE_TEXT' },
-            type_text_target: { type: 'choice', choice: 'field' },
-          },
-        });
-      const request = JSON.parse(String(init?.body));
-      expect(request.state.recent_actions).toEqual([
-        expect.objectContaining({
-          operation: 'TYPE_TEXT',
-          target: 'field',
-          outcome: 'failed',
-          error: 'Text model returned invalid JSON.',
-        }),
-      ]);
-      return response({
-        answers: { operation: { type: 'choice', choice: 'DONE' } },
-      });
-    });
-
-    const result = await runJev(page, { goal: 'Set a display name', fetch });
-
-    expect(result).toMatchObject({ steps: 2, actionErrors: 1 });
-    expect(locator.fill).not.toHaveBeenCalled();
+      }),
+    );
+    await expect(runJev(page, { goal: 'Submit', fetch })).rejects.toMatchObject(
+      {
+        result: { steps: 1, actionErrors: 1 },
+        message: expect.stringContaining('uncertain outcome'),
+      },
+    );
+    expect(fetch).toHaveBeenCalledTimes(1);
+    expect(locator.click).toHaveBeenCalledTimes(1);
+    expect(
+      evaluate.mock.calls.filter(([fn]) => fn.name === 'browserSnapshot'),
+    ).toHaveLength(2);
   });
+
+  it('accepts independent completion after an action error without replay', async () => {
+    setupJevEnvironment();
+    const { page, locator } = pageFor([
+      browserSnapshot(),
+      browserSnapshot('saved'),
+    ]);
+    locator.click.mockRejectedValueOnce(new Error('timeout after save'));
+    const fetch = vi.fn(async () =>
+      response({
+        answers: {
+          operation: { type: 'choice', choice: 'CLICK' },
+          click_target: { type: 'choice', choice: '1' },
+        },
+      }),
+    );
+    const result = await runJev(page, {
+      goal: 'Save',
+      fetch,
+      verifyCompletion: async () => true,
+    });
+    expect(result.completionVerified).toBe(true);
+    expect(locator.click).toHaveBeenCalledTimes(1);
+    expect(fetch).toHaveBeenCalledTimes(1);
+  });
+
+  it.each(['fill', 'clear'])(
+    'never offers or executes a %s action even with text credentials',
+    async (kind) => {
+      setupJevEnvironment();
+      vi.stubEnv('MIDSCENE_JEV_TEXT_API_KEY', 'must-not-be-used');
+      const { page, locator } = pageFor([
+        {
+          ...browserSnapshot(),
+          actions: [
+            {
+              id: 'field',
+              node: '12',
+              guard: 'field',
+              kind,
+              label: 'Display name',
+              role: 'textbox',
+            },
+          ],
+        },
+      ]);
+      const fetch = vi.fn<typeof globalThis.fetch>(async (_input, init) => {
+        const body = JSON.parse(String(init?.body));
+        expect(body.questions).not.toHaveProperty('type_text_target');
+        expect(body.questions).not.toHaveProperty('clear_target');
+        return response({
+          answers: { operation: { type: 'choice', choice: 'TYPE_TEXT' } },
+        });
+      });
+      await expect(
+        runJev(page, { goal: 'Enter a name', fetch }),
+      ).rejects.toThrow('outside the offered candidates');
+      expect(fetch).toHaveBeenCalledTimes(1);
+      expect(locator.fill).not.toHaveBeenCalled();
+    },
+  );
 
   it('includes prior action outcomes when replanning the next step', async () => {
     setupJevEnvironment();
@@ -413,80 +443,47 @@ describe('JEV runner', () => {
     expect(locator.click).toHaveBeenCalledTimes(2);
   });
 
-  it('stops after two unrelated actions leave the same structured validation unresolved', async () => {
+  it('allows prerequisite progress while the same required-field validation remains', async () => {
     setupJevEnvironment();
-    const invalid = (marker: string) => ({
+    const snap = (marker: string) => ({
       ...browserSnapshot(marker),
-      progressMarker: `semantic-${marker}`,
-      alerts: ['Account identifiers are required'],
+      progressMarker: marker,
       validations: [
         {
-          message: 'Account identifiers are required',
-          field: 'Account identifiers',
-          groupId: 'group:account-identifiers',
+          message: 'Code is required',
+          field: 'Code',
+          controlId: 'code',
+          groupId: 'code-group',
           required: true,
         },
       ],
-      actions: [
-        {
-          id: 'optional-benefit',
-          node: '1',
-          guard: 'stable',
-          kind: 'click' as const,
-          label: 'Optional benefit',
-          role: 'checkbox',
-          region: 'main',
-          groupId: 'group:benefit',
-          signature: 'click|main|checkbox|optional benefit|activate',
-          effect: 'activate',
-        },
-      ],
+      alerts: ['Code is required'],
     });
     const { page, locator } = pageFor([
-      invalid('initial'),
-      invalid('toggle-on'),
-      invalid('toggle-off'),
+      snap('initial'),
+      snap('sent'),
+      snap('delivery-selected'),
+      snap('ready'),
     ]);
-    const events: Array<Record<string, unknown>> = [];
+    let decisions = 0;
     const fetch = vi.fn<typeof globalThis.fetch>(async () =>
       response({
-        answers: {
-          operation: { type: 'choice', choice: 'CLICK' },
-          click_target: {
-            type: 'choice',
-            choice: 'optional-benefit',
-          },
-        },
+        answers:
+          ++decisions <= 3
+            ? {
+                operation: { type: 'choice', choice: 'CLICK' },
+                click_target: { type: 'choice', choice: '1' },
+              }
+            : { operation: { type: 'choice', choice: 'DONE' } },
       }),
     );
-
-    await expect(
-      runJev(page, {
-        goal: 'Complete the required account identifiers',
-        fetch,
-        maxSteps: 6,
-        observer: (event) => events.push(event as Record<string, unknown>),
-      }),
-    ).rejects.toThrow(
-      'JEV repeatedly acted outside the field with unresolved validation.',
-    );
-
-    expect(fetch).toHaveBeenCalledTimes(2);
-    expect(locator.click).toHaveBeenCalledTimes(2);
-    expect(events).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({
-          type: 'action',
-          progressed: false,
-        }),
-        expect.objectContaining({
-          type: 'failure',
-          reason:
-            'JEV repeatedly acted outside the field with unresolved validation.',
-          result: expect.objectContaining({ steps: 2 }),
-        }),
-      ]),
-    );
+    const result = await runJev(page, {
+      goal: 'Prepare the verification delivery',
+      fetch,
+      maxSteps: 5,
+    });
+    expect(result.steps).toBe(4);
+    expect(locator.click).toHaveBeenCalledTimes(3);
   });
 
   it('rejects apparent page progress when a toggle never reaches its requested state', async () => {
@@ -568,7 +565,7 @@ describe('JEV runner', () => {
     expect(locator.click).toHaveBeenCalledTimes(2);
   });
 
-  it('keeps decisions inside an active generic workflow', async () => {
+  it('keeps workflow facts without suppressing navigation prerequisites', async () => {
     setupJevEnvironment();
     const workflow = {
       ...browserSnapshot(),
@@ -578,12 +575,12 @@ describe('JEV runner', () => {
       ],
       actions: [
         {
-          id: 'site-search',
+          id: 'previous-step',
           node: '1',
-          guard: 'search',
-          kind: 'fill' as const,
-          label: 'Site search',
-          role: 'searchbox',
+          guard: 'previous',
+          kind: 'click' as const,
+          label: 'Previous step',
+          role: 'button',
           region: 'navigation',
         },
         {
@@ -603,6 +600,9 @@ describe('JEV runner', () => {
       expect(request.state.page.workflow_steps).toEqual(workflow.workflowSteps);
       expect(request.questions).not.toHaveProperty('type_text_target');
       expect(request.questions.click_target.criteria).toHaveProperty('submit');
+      expect(request.questions.click_target.criteria).toHaveProperty(
+        'previous-step',
+      );
       return response({
         answers: { operation: { type: 'choice', choice: 'DONE' } },
       });
@@ -611,77 +611,53 @@ describe('JEV runner', () => {
     await runJev(page, { goal: 'Finish the current workflow', fetch });
   });
 
-  it('provides current field values and recent outcomes for model replanning', async () => {
+  it('retains current input values as read-only evidence without a text service', async () => {
     setupJevEnvironment();
-    vi.stubEnv('MIDSCENE_MODEL_API_KEY', 'local-text-key');
-    vi.stubEnv('MIDSCENE_MODEL_BASE_URL', 'https://local-model.test/v1');
-    vi.stubEnv('MIDSCENE_MODEL_NAME', 'local-text-model');
-    const field = (marker: string, currentValue: string) => ({
-      ...browserSnapshot(marker),
-      actions: [
+    const snapshot = {
+      ...browserSnapshot(),
+      facts: [
         {
-          id: 'field',
-          node: '12',
-          guard: 'field',
-          kind: 'fill' as const,
+          id: 'name',
           label: 'Display name',
-          role: 'input',
-          currentValue,
+          role: 'textbox',
+          kind: 'fill',
+          currentValue: 'Ada',
+          visible: true,
+          actionable: false,
+          region: 'main',
+          groupId: 'g',
+          layerPath: ['page'],
         },
       ],
-    });
-    const { page } = pageFor([field('before', ''), field('after', 'Ada')]);
-    let decisions = 0;
-    const fetch = vi.fn<typeof globalThis.fetch>(async (input, init) => {
-      if (String(input).endsWith('/chat/completions')) {
-        const request = JSON.parse(String(init?.body));
-        expect(request.max_tokens).toBe(4_096);
-        return response({
-          choices: [
-            {
-              message: {
-                content:
-                  '<think>select value</think>\n```json\n{"text":"Ada"}\n```',
-              },
-            },
-          ],
-        });
-      }
-      decisions += 1;
-      const request = JSON.parse(String(init?.body));
-      if (decisions === 1) {
-        expect(request.questions.type_text_target.instructions.rules).toContain(
-          'accessible label',
-        );
-        return response({
-          answers: {
-            operation: { type: 'choice', choice: 'TYPE_TEXT' },
-            type_text_target: { type: 'choice', choice: 'field' },
-          },
-        });
-      }
-      expect(request.questions.type_text_target.criteria.field).toMatchObject({
-        element: 'Display name',
-        current_value: 'Ada',
-      });
-      expect(request.state.recent_actions).toEqual([
+    };
+    const { page, locator } = pageFor([snapshot]);
+    const fetch = vi.fn<typeof globalThis.fetch>(async (_input, init) => {
+      const body = JSON.parse(String(init?.body));
+      expect(body.state.facts).toContainEqual(
         expect.objectContaining({
-          operation: 'TYPE_TEXT',
-          target: 'field',
-          outcome: 'progressed',
+          label: 'Display name',
+          current_value: 'Ada',
         }),
-      ]);
+      );
+      expect(body.questions).not.toHaveProperty('type_text_target');
       return response({
         answers: { operation: { type: 'choice', choice: 'DONE' } },
       });
     });
-
+    const events: unknown[] = [];
     const result = await runJev(page, {
-      goal: 'Set the display name to Ada',
+      goal: 'The name is already Ada',
       fetch,
+      observer: (event) => events.push(event),
     });
-
-    expect(result.steps).toBe(2);
+    expect(result.completionVerified).toBe(false);
+    expect(events).toContainEqual({
+      type: 'completion',
+      step: 1,
+      verified: false,
+    });
+    expect(locator.fill).not.toHaveBeenCalled();
+    expect(fetch).toHaveBeenCalledTimes(1);
   });
 
   it('feeds a rejected DONE back into the loop instead of treating model completion as business success', async () => {
@@ -874,9 +850,6 @@ describe('JEV runner', () => {
 
   it('runs a parsed YAML jevAct step in Chromium with local model responses and leaves the Page usable', async () => {
     setupJevEnvironment();
-    vi.stubEnv('MIDSCENE_MODEL_API_KEY', 'local-text-key');
-    vi.stubEnv('MIDSCENE_MODEL_BASE_URL', 'https://local-model.test/v1');
-    vi.stubEnv('MIDSCENE_MODEL_NAME', 'local-text-model');
     const browser = await chromium.launch({ headless: true });
     const page = await browser.newPage();
     const temporaryDirectory = await mkdtemp(
@@ -888,36 +861,22 @@ describe('JEV runner', () => {
         <button type="button" onclick="document.querySelector('#status').textContent = 'Saved'">Save</button>
         <p id="status">Unsaved</p>
       `);
-      let systemCalls = 0;
-      const localFetch: typeof globalThis.fetch = async (input) => {
-        const url = String(input);
-        if (url.endsWith('/decisions')) {
-          systemCalls += 1;
-          if (systemCalls === 1)
-            return response({
-              answers: {
-                operation: { type: 'choice', choice: 'TYPE_TEXT' },
-                type_text_target: { type: 'choice', choice: '1' },
-              },
-              usage: { input_tokens: 1, output_tokens: 1 },
-            });
-          if (systemCalls === 2)
-            return response({
-              answers: {
-                operation: { type: 'choice', choice: 'CLICK' },
-                click_target: { type: 'choice', choice: '2' },
-              },
-            });
-          return response({
-            answers: { operation: { type: 'choice', choice: 'DONE' } },
-          });
-        }
-        expect(url).toBe('https://local-model.test/v1/chat/completions');
+      await page.locator('input').fill('Ada Lovelace'); // Caller-owned input step.
+      const localFetch: typeof globalThis.fetch = async (_input, init) => {
+        const body = JSON.parse(String(init?.body));
+        expect(body.questions).not.toHaveProperty('type_text_target');
+        const candidates = body.questions.click_target.criteria as Record<
+          string,
+          { element: string }
+        >;
+        const save = Object.entries(candidates).find(
+          ([, value]) => value.element === 'Save',
+        );
         return response({
-          choices: [
-            { message: { content: JSON.stringify({ text: 'Ada Lovelace' }) } },
-          ],
-          usage: { prompt_tokens: 2, completion_tokens: 1 },
+          answers: {
+            operation: { type: 'choice', choice: 'CLICK' },
+            click_target: { type: 'choice', choice: save?.[0] },
+          },
         });
       };
       vi.stubGlobal('fetch', localFetch);
@@ -931,7 +890,7 @@ describe('JEV runner', () => {
       const workflowPath = join(temporaryDirectory, 'jev.yaml');
       await writeFile(
         workflowPath,
-        'cases:\n  - name: local Chromium JEV\n    steps:\n      - jevAct:\n          goal: Set the display name to Ada Lovelace and save\n          maxSteps: 5\n          maxTaskMs: 10000\n',
+        'cases:\n  - name: local Chromium JEV\n    steps:\n      - jevAct:\n          goal: Save the caller-provided display name\n          maxSteps: 5\n          maxTaskMs: 10000\n',
       );
       const document = collectWorkflowDocument(
         {
@@ -971,14 +930,10 @@ describe('JEV runner', () => {
       `);
       const fetch = vi.fn<typeof globalThis.fetch>(async (_input, init) => {
         const request = JSON.parse(String(init?.body));
-        expect(
-          Object.values(
-            request.questions.type_text_target.criteria as Record<
-              string,
-              { element: string }
-            >,
-          ),
-        ).toContainEqual(expect.objectContaining({ element: 'Nickname' }));
+        expect(request.questions).not.toHaveProperty('type_text_target');
+        expect(request.state.facts).toContainEqual(
+          expect.objectContaining({ label: 'Nickname' }),
+        );
         const candidates = request.questions.click_target.criteria as Record<
           string,
           { element: string; role: string }

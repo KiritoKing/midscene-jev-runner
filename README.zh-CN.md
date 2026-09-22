@@ -1,16 +1,19 @@
 # Midscene JEV Runner
 
 面向 [Midscene Test](https://midscenejs.com/zh/midscene-test/overview) 的社区维护
-JEV Runner。本项目独立于 Midscene 仓库，不是 Midscene 官方包。
+JEV 集成。本项目独立于 Midscene 仓库，不是 Midscene 官方包。
 
 本包提供：
 
-- `runJev(page, options)`：直接在 Playwright 中运行 JEV。
-- `createJevNodes(options)`：向 Midscene Test 注册严格 schema 的 `jevAct`
-  节点。
-- 调用方持有浏览器生命周期：Runner 不创建、导航、路由或关闭传入的
-  Playwright `Page`。
-- 可选的独立完成校验和结构化 observer 事件。
+- `runJev(page, options)`：在调用方持有的 Playwright `Page` 上运行有界
+  ReAct 循环。
+- `evaluateJevAssertion(page, options)`：基于当前页面观察执行一次只读断言。
+- `createJevNodes(options)`：注册严格 schema 的 `jevAct` 与 `jevAssert` 节点。
+
+一个 `jevAct` 可包含多次浏览器操作。JEV 会在每轮决策后执行、重新观察，再决定
+是否继续，直到返回 `DONE`、`BLOCKED` 或达到配置的步数、时间上限。它的动作空间
+刻意不包含文本：只能点击、选择、滚动、等待和关闭。它不会生成文本、填充或清空输入
+框，也不会创建导航、拦截请求或关闭传入的页面。
 
 ## 安装
 
@@ -20,38 +23,60 @@ pnpm add @chlrc/midscene-jev-runner @midscene/test playwright
 
 要求 Node.js `^20.19.0 || ^22.12.0 || >=24.0.0`。
 
-## 配置
+## 配置 JEV
 
-凭据只能通过进程环境变量传入，不要写入 YAML：
+凭据只能通过进程环境变量传入，不要写进 YAML：
 
 ```sh
-export OPENROUTER_API_KEY=...
+export MIDSCENE_JEV_API_KEY=...
 ```
 
-Runner 默认请求 OpenRouter Decisions 的
-`https://openrouter.ai/api/alpha/decisions`，模型为
-`~typesafe/jev-latest`。兼容旧配置，未设置 `OPENROUTER_API_KEY` 时会回退读取
-`MIDSCENE_JEV_API_KEY`；兼容网关可通过 `MIDSCENE_JEV_BASE_URL` 和
-`MIDSCENE_JEV_MODEL_NAME` 覆盖。
+默认使用 TypeSafe System One：`POST https://api.typesafe.ai/v1/systemone`，
+模型为 `jev-latest`。Runner 只读取 `MIDSCENE_JEV_API_KEY`，不会回退读取
+`OPENROUTER_API_KEY`。
 
-如任务包含 `TYPE_TEXT`，还需
-配置 `MIDSCENE_JEV_TEXT_API_KEY`、`MIDSCENE_JEV_TEXT_BASE_URL`、
-`MIDSCENE_JEV_TEXT_MODEL_NAME`，或对应的 `MIDSCENE_MODEL_*` 环境变量。
+客户端发送文档规定的 System One 请求体（`model`、`state`、类型化
+`questions`），因此服务端必须兼容该请求及响应结构。使用 OpenRouter System One
+时，只需替换 API Key 和 base URL；OpenRouter 会将默认的裸模型名 `jev-latest`
+映射到 TypeSafe：
 
-## 注册 Midscene Test 节点
+```sh
+export MIDSCENE_JEV_API_KEY=...
+export MIDSCENE_JEV_BASE_URL=https://openrouter.ai
+```
+
+其他兼容网关应把 `MIDSCENE_JEV_BASE_URL` 设为其 System One API 根路径；只有模型
+命名不同才设置 `MIDSCENE_JEV_MODEL_NAME`。也可直接传入以 `/systemone` 结尾的完整
+端点。旧 OpenRouter alpha Decisions 路径仅在显式配置完整的
+`/api/alpha/decisions` URL 时兼容，它不再是默认值。不要把本客户端指向仅支持 Chat
+Completions 的端点：两者请求和响应 schema 不同。
+
+## 与 Midscene 原生节点组合
+
+JEV 不负责文本输入。应由*使用本包的项目*注册 Midscene 标准节点，并在有界
+`jevAct` 前通过 `aiInput` 提供调用方选定的文本。`createJevNodes()` 只注册
+`jevAct` 和 `jevAssert`；只有消费者通过公开 `createMidsceneNodes()` factory 注册
+Agent class 后，`aiInput` 才存在。
+
+下面是消费者项目的配置示例，需要它自己安装 `@midscene/web`。本包及可运行的
+`example/` 目录都不会导入该依赖。
 
 ```ts
-import { defineProjectSetup, defineTestProject } from '@midscene/test/config';
 import { createJevNodes } from '@chlrc/midscene-jev-runner';
+import { defineProjectSetup, defineTestProject } from '@midscene/test/config';
+import { createMidsceneNodes } from '@midscene/test/midscene';
+import { PlaywrightAgent } from '@midscene/web/playwright/agent';
 import { chromium, type Browser, type Page } from 'playwright';
 
 interface ProjectContext {
   browser: Browser;
   page: Page;
+  agent?: PlaywrightAgent;
 }
 
 const setup = defineProjectSetup<ProjectContext>({
   name: 'playwright',
+  platform: 'web',
   async setup({ onTeardown }) {
     const browser = await chromium.launch();
     const page = await browser.newPage();
@@ -61,62 +86,86 @@ const setup = defineProjectSetup<ProjectContext>({
   },
 });
 
-const nodes = createJevNodes<ProjectContext>({
+const midsceneNodes = createMidsceneNodes<ProjectContext>({
+  agentClass: PlaywrightAgent,
+  getAgent: ({ context }) => {
+    context.agent ??= new PlaywrightAgent(context.page);
+    return context.agent;
+  },
+});
+const jevNodes = createJevNodes<ProjectContext>({
   getPage: ({ context }) => context.page,
-  verifyCompletion: async ({ page }) =>
-    page.getByText('Complete', { exact: false }).isVisible(),
 });
 
 export default defineTestProject<ProjectContext>({
-  projects: [{ name: 'jev', files: { include: ['midscene.yaml'] }, setup }],
-  nodes,
+  projects: [
+    {
+      name: 'web',
+      platform: 'web',
+      setup,
+      files: { include: ['cases/**/*.yaml'] },
+    },
+  ],
+  nodes: [...midsceneNodes, ...jevNodes],
 });
 ```
+
+完成上述注册后，一个 case 可以显式组合两个能力：
 
 ```yaml
 cases:
-  - name: JEV completes a browser task
+  - name: 先输入文本，再完成非文本交互并验收
     steps:
+      - aiInput:
+          prompt: 搜索输入框
+          value: 由调用方提供的搜索词
       - jevAct:
-          goal: Complete the task and leave visible evidence of completion.
-          maxSteps: 20
-          maxTaskMs: 180000
+          goal: 使用当前页面控件展示所需结果，并留下可见的完成证据。
+          maxSteps: 12
+          maxTaskMs: 120000
+      - jevAssert:
+          prompt: 所需结果和完成证据均可见。
+          message: 页面没有展示预期的完成证据。
 ```
 
-对任何有副作用的流程都强烈建议提供 `verifyCompletion`。未提供时，`DONE`
-仅表示模型判断任务已完成，不代表业务验收成功。
+变更节点注册后应生成消费者项目的 Node Spec。它才是该安装版本中原生 `aiInput`
+输入 schema 的唯一依据。
 
-从 `0.1.1` 起，Runner 会在动作执行后以及下一次模型决策前调用完成校验，
-避免页面异步完成后继续产生多余操作。
+## 完成与断言证据
 
-从 `0.1.2` 起，页面观察采用站点无关、可感知工作流的通用实现：向模型提供
-无障碍控件、字段状态、可见步骤、校验反馈和活动弹层，不依赖应用特有选择器。
-Runner 还会跨无关 DOM 重渲染抑制重复的语义失败，在执行前重新检查目标是否被
-遮挡，并可关闭与目标无关的活动弹层，同时仍不接管调用方的 `Page` 生命周期。
+有副作用的流程请提供 `verifyCompletion`。JEV 的 `DONE` 只是模型输出，不是业务
+成功证明。Runner 会在动作后及下一次模型决策前调用校验器，使异步完成能停止循环，
+不会继续产生额外变更。
 
-## 直接调用
+`jevAssert` 与 `evaluateJevAssertion` 均为只读：它们分别询问条件是否成立，以及
+已观察的证据是否足够。只有两项由模型评估的概率均达到阈值才通过。证据充分且条件
+概率不高于对称失败阈值时返回 `fail`；证据不足，或条件概率位于通过与失败阈值之间
+时返回 `indeterminate`。这些概率不是
+JEV 已看见所有隐藏或页面外缺口的确定性保证；页面外事实应继续使用确定性的应用或
+API 校验。
 
-```ts
-import { runJev } from '@chlrc/midscene-jev-runner';
+## 从旧文本路径迁移
 
-const result = await runJev(page, {
-  goal: 'Complete the form',
-  verifyCompletion: async ({ page }) => page.getByText('Complete').isVisible(),
-});
-```
+公开的 `TYPE_TEXT` 动作、文本生成、填充、清空、`textUsage`，以及全部
+`MIDSCENE_JEV_TEXT_*` / `MIDSCENE_MODEL_*` 文本服务配置均已移除。把确定的输入值
+移到消费者 Agent 注册的标准 Midscene `aiInput` step；之后由 `jevAct` 运行有界、
+非文本 ReAct 循环，最后用 `jevAssert` 验证页面状态。
 
-完整 Midscene Test 配置见 [`example/`](./example)。
+## 安全与通用性
 
-## 安全与职责边界
+- 鉴权、导航、请求拦截、清理及领域写入门禁由调用方负责。
+- 发给模型的 URL 会移除 query 和 fragment；密码、文件输入会排除在 JEV 动作空间外。
+- Provider 选择只是传输配置，不得成为站点特化分支。
+- 候选硬过滤只能来自可观察的 HTML、ARIA、禁用/可见状态，或明确的安全边界；不得
+  编码业务名、路由、固定字段文案、ID 或假定的操作顺序。文本和校验线索可以排序，
+  但不能把业务假设变成全局硬过滤。
 
-- 发给模型的 URL 会移除 query 和 fragment。
-- action space 会排除密码和文件输入框。
-- Runner 不记录 API Key 或 Authorization Header。
-- 鉴权、请求拦截、导航、清理和领域写入门禁由调用方负责。
+可运行的 [`example/`](./example) 仅使用本包的非文本节点与现有依赖；它不会声称已
+注册 `aiInput`。
 
 ## 许可证
 
 MIT。DOM snapshot 实现改编自 `jev-ultrafast`，详见
 [`THIRD_PARTY_LICENSES.txt`](./THIRD_PARTY_LICENSES.txt)。
 
-English documentation: [README.md](./README.md).
+English documentation: [README.md](./README.md)。

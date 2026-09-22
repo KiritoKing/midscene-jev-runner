@@ -33,11 +33,19 @@ const names = new Set<BrowserNameSource>([
   'inferred',
   'unknown',
 ]);
-const kinds = new Set<BrowserActionKind>([
+const actionKinds = new Set<BrowserActionKind>([
+  'click',
+  'select',
+  'scroll',
+  'wait',
+  'dismiss',
+]);
+// Editable controls remain facts so a caller can deliberately hand them to
+// aiInput, but they are never JEV actions.
+const factKinds = new Set([
   'click',
   'fill',
   'select',
-  'clear',
   'scroll',
   'wait',
   'dismiss',
@@ -144,6 +152,8 @@ export const observe = async (
   const validationIssues: BrowserValidationIssue[] = [];
   const validationKeys = new Set<string>();
   let omittedActions = 0;
+  let omittedFacts = 0;
+  let textTruncated = false;
   for (const { raw, path } of samples) {
     const prefix = prefixFor(path);
     const qualify = (value: string) => (prefix ? `${prefix}:${value}` : value);
@@ -200,7 +210,7 @@ export const observe = async (
           typeof value.label !== 'string' ||
           typeof value.role !== 'string' ||
           typeof value.kind !== 'string' ||
-          !kinds.has(value.kind as BrowserActionKind)
+          !factKinds.has(value.kind)
         )
           continue;
         const region = asRegion(value.region) || 'content';
@@ -217,7 +227,7 @@ export const observe = async (
           id: qualify(value.id),
           label: value.label,
           role: value.role,
-          kind: value.kind as BrowserActionKind,
+          kind: value.kind as BrowserFact['kind'],
           ...(typeof value.currentValue === 'string'
             ? { currentValue: value.currentValue }
             : {}),
@@ -261,7 +271,7 @@ export const observe = async (
           !isRecord(value) ||
           typeof value.id !== 'string' ||
           typeof value.kind !== 'string' ||
-          !kinds.has(value.kind as BrowserActionKind) ||
+          !actionKinds.has(value.kind as BrowserActionKind) ||
           !Object.hasOwn(operationByAction, value.kind)
         )
           continue;
@@ -337,6 +347,11 @@ export const observe = async (
       typeof raw.omittedActions === 'number' && raw.omittedActions > 0
         ? raw.omittedActions
         : 0;
+    omittedFacts +=
+      typeof raw.omittedFacts === 'number' && raw.omittedFacts > 0
+        ? raw.omittedFacts
+        : 0;
+    textTruncated ||= raw.textTruncated === true;
   }
   actions.sort(
     (left, right) =>
@@ -400,5 +415,7 @@ export const observe = async (
     ...(activeLayer ? { activeLayer } : {}),
     loading: main.loading === true,
     omittedActions: omittedActions + Math.max(0, actions.length - actionLimit),
+    omittedFacts: omittedFacts + Math.max(0, facts.length - factLimit),
+    textTruncated,
   };
 };

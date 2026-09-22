@@ -3,6 +3,7 @@ import { dirname, resolve } from 'node:path';
 import { chromium } from 'playwright';
 import { describe, expect, it } from 'vitest';
 import { benchmarkFixtures } from '../experiments/context-benchmark/fixtures.js';
+import { DEFAULT_JEV_MODEL_NAME } from '../src/constants.js';
 import { JevRunError, runJev } from '../src/index.js';
 import type { JevObserverEvent, JevRunResult } from '../src/types.js';
 
@@ -39,10 +40,31 @@ describe.skipIf(!runLive)('live production context benchmark', () => {
           .map((value) => value.trim())
           .filter(Boolean),
       );
-      const fixtures = benchmarkFixtures.filter(
+      const requested = benchmarkFixtures.filter(
         (fixture) =>
           requestedFixtures.size === 0 || requestedFixtures.has(fixture.id),
       );
+      // Text entry is now a separate Test node. Do not report the historical
+      // whole-form fixtures as either supported runs or successful JEV tasks.
+      const excludedFixtures = requested
+        .filter((fixture) =>
+          fixture.steps.some((step) => step.operation === 'TYPE_TEXT'),
+        )
+        .map((fixture) => ({
+          fixtureId: fixture.id,
+          reason:
+            'Requires a separate aiInput node; excluded from standalone jevAct coverage.',
+        }));
+      const excludedIds = new Set(
+        excludedFixtures.map((fixture) => fixture.fixtureId),
+      );
+      const fixtures = requested.filter(
+        (fixture) => !excludedIds.has(fixture.id),
+      );
+      if (fixtures.length === 0)
+        throw new Error(
+          'No non-text fixtures selected for the jevAct benchmark.',
+        );
       const outputPath = resolve(
         process.env.PRODUCTION_CONTEXT_BENCHMARK_OUTPUT ||
           'experiments/context-benchmark/results/production-live.json',
@@ -56,7 +78,9 @@ describe.skipIf(!runLive)('live production context benchmark', () => {
             {
               generatedAt: new Date().toISOString(),
               model:
-                process.env.MIDSCENE_JEV_MODEL_NAME || '~typesafe/jev-latest',
+                process.env.MIDSCENE_JEV_MODEL_NAME || DEFAULT_JEV_MODEL_NAME,
+              contract: 'jevAct-non-text-loop',
+              excludedFixtures,
               repeats,
               fixtures: fixtures.map((fixture) => fixture.id),
               summary: {
