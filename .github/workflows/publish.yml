@@ -69,5 +69,14 @@ jobs:
         with:
           name: npm-package
           path: release-artifact
+      - name: Select npm dist-tag
+        id: npm_dist_tag
+        shell: bash
+        run: |
+          if [[ "${{ github.event.release.prerelease }}" == "true" ]]; then
+            echo "name=beta" >> "$GITHUB_OUTPUT"
+          else
+            echo "name=latest" >> "$GITHUB_OUTPUT"
+          fi
       - name: Publish public package with provenance
-        run: npm publish ./release-artifact/*.tgz --access public --provenance
+        run: npm publish ./release-artifact/*.tgz --access public --provenance --tag "${{ steps.npm_dist_tag.outputs.name }}"

@@ -1,7 +1,10 @@
 cases:
-  - name: JEV completes the configured browser task
+  - name: JEV completes a bounded non-text browser task
     steps:
       - jevAct:
-          goal: Complete the task on this page and leave visible evidence of completion.
+          goal: Use current non-text controls to complete the configured task and leave visible evidence of completion.
           maxSteps: 20
           maxTaskMs: 180000
+      - jevAssert:
+          prompt: The page visibly confirms that the configured task is complete.
+          message: The page did not show completion evidence.

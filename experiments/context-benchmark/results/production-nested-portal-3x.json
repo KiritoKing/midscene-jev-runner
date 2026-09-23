@@ -1,0 +1,147 @@
+{
+  "generatedAt": "2026-09-22T09:46:40.100Z",
+  "model": "~typesafe/jev-latest",
+  "repeats": 3,
+  "fixtures": ["nested-portal"],
+  "summary": {
+    "runs": 3,
+    "completed": 3,
+    "completionRate": 1,
+    "decisionCalls": 9,
+    "inputTokens": 22890,
+    "outputTokens": 1179,
+    "cost": 0.00096138,
+    "averageElapsedMs": 2659
+  },
+  "results": [
+    {
+      "fixtureId": "nested-portal",
+      "repeat": 1,
+      "completed": true,
+      "elapsedMs": 2861,
+      "result": {
+        "steps": 3,
+        "elapsedMs": 2834,
+        "usage": {
+          "calls": 3,
+          "inputTokens": 7630,
+          "outputTokens": 393,
+          "cost": 0.00032046
+        },
+        "textUsage": {
+          "calls": 0,
+          "inputTokens": 0,
+          "outputTokens": 0
+        },
+        "staleDecisions": 0,
+        "actionErrors": 0,
+        "rejectedCompletions": 0,
+        "rejectedBlocks": 0,
+        "completionVerified": true
+      },
+      "decisions": [
+        {
+          "step": 1,
+          "operation": "CLICK",
+          "label": "Shipping method: Standard"
+        },
+        {
+          "step": 2,
+          "operation": "CLICK",
+          "label": "Priority shipping"
+        },
+        {
+          "step": 3,
+          "operation": "CLICK",
+          "label": "Confirm checkout"
+        }
+      ]
+    },
+    {
+      "fixtureId": "nested-portal",
+      "repeat": 2,
+      "completed": true,
+      "elapsedMs": 2578,
+      "result": {
+        "steps": 3,
+        "elapsedMs": 2561,
+        "usage": {
+          "calls": 3,
+          "inputTokens": 7630,
+          "outputTokens": 393,
+          "cost": 0.00032046
+        },
+        "textUsage": {
+          "calls": 0,
+          "inputTokens": 0,
+          "outputTokens": 0
+        },
+        "staleDecisions": 0,
+        "actionErrors": 0,
+        "rejectedCompletions": 0,
+        "rejectedBlocks": 0,
+        "completionVerified": true
+      },
+      "decisions": [
+        {
+          "step": 1,
+          "operation": "CLICK",
+          "label": "Shipping method: Standard"
+        },
+        {
+          "step": 2,
+          "operation": "CLICK",
+          "label": "Priority shipping"
+        },
+        {
+          "step": 3,
+          "operation": "CLICK",
+          "label": "Confirm checkout"
+        }
+      ]
+    },
+    {
+      "fixtureId": "nested-portal",
+      "repeat": 3,
+      "completed": true,
+      "elapsedMs": 2538,
+      "result": {
+        "steps": 3,
+        "elapsedMs": 2523,
+        "usage": {
+          "calls": 3,
+          "inputTokens": 7630,
+          "outputTokens": 393,
+          "cost": 0.00032046
+        },
+        "textUsage": {
+          "calls": 0,
+          "inputTokens": 0,
+          "outputTokens": 0
+        },
+        "staleDecisions": 0,
+        "actionErrors": 0,
+        "rejectedCompletions": 0,
+        "rejectedBlocks": 0,
+        "completionVerified": true
+      },
+      "decisions": [
+        {
+          "step": 1,
+          "operation": "CLICK",
+          "label": "Shipping method: Standard"
+        },
+        {
+          "step": 2,
+          "operation": "CLICK",
+          "label": "Priority shipping"
+        },
+        {
+          "step": 3,
+          "operation": "CLICK",
+          "label": "Confirm checkout"
+        }
+      ]
+    }
+  ]
+}

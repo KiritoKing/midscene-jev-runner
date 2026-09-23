@@ -1,18 +1,28 @@
 # Midscene JEV Runner
 
-Community-maintained JEV runner integration for
-[Midscene Test](https://midscenejs.com/midscene-test/overview). This project is
-independent from the Midscene repository and is not an official Midscene
-package.
+Community-maintained JEV integration for
+[Midscene Test](https://midscenejs.com/midscene-test/overview). It is
+independent of the Midscene repository and is not an official Midscene package.
 
 The package provides:
 
-- `runJev(page, options)` for direct Playwright use.
-- `createJevNodes(options)` for registering a strict `jevAct` node in a
-  Midscene Test project.
-- A caller-owned browser lifecycle: the runner does not create, navigate,
-  route, or close the supplied Playwright `Page`.
-- Optional completion verification and structured observer events.
+- `runJev(page, options)`, a bounded ReAct loop for a caller-owned Playwright
+  `Page`.
+- `evaluateJevAssertion(page, options)`, one read-only assertion against the
+  current browser observation.
+- `waitForJevAssertion(page, options)`, repeated read-only checks until an
+  observable condition passes or the wait window expires.
+- `createJevNodes(options)`, which registers strict-schema `jevAct`,
+  `jevAssert`, and `jevWaitFor` nodes.
+
+`jevAct` is intended as a faster replacement for one atomic `aiAct` intent,
+not as an autonomous whole-test planner. It may take a short bounded sequence
+when an atomic interaction opens a menu or layer, but callers should express a
+workflow as ordered Midscene Test steps. The runner observes after each action
+until it reaches `DONE`, `BLOCKED`, or a configured limit. Its action space is
+intentionally non-text: click, select, scroll, wait, and dismiss. It does not
+generate text, fill or clear inputs, create navigation, route requests, or
+close the supplied page.
 
 ## Install
 
@@ -22,39 +32,76 @@ pnpm add @chlrc/midscene-jev-runner @midscene/test playwright
 
 Node.js `^20.19.0 || ^22.12.0 || >=24.0.0` is required.
 
-## Configure
+## Test this repository
 
-Set credentials in the process environment, never in YAML:
+`pnpm check` runs 27 maintained offline Chromium scene cases plus lint, types,
+build, and package smoke checks. `pnpm test:e2e` runs four local scenes with
+real JEV and Midscene providers and requires explicit process credentials.
+See [scene testing](./docs/testing.md) for setup, assertions, CI behavior, the
+`SELECT` state/value contract, and the Red → Green workflow. Historical unit
+and experimental tests remain under `pnpm test:legacy`.
+
+## Configure JEV
+
+Set the runner-owned credential in the process environment, never in YAML:
 
 ```sh
-export OPENROUTER_API_KEY=...
+export MIDSCENE_JEV_API_KEY=...
 ```
 
-The runner calls OpenRouter Decisions at
-`https://openrouter.ai/api/alpha/decisions` with
-`~typesafe/jev-latest` by default. `MIDSCENE_JEV_API_KEY` remains supported as
-a compatibility fallback. Compatible gateways can be selected with
-`MIDSCENE_JEV_BASE_URL` and `MIDSCENE_JEV_MODEL_NAME`.
+The default is TypeSafe System One: `POST https://api.typesafe.ai/v1/systemone`
+with model `jev-latest`. `MIDSCENE_JEV_API_KEY` is the only credential the
+runner reads; `OPENROUTER_API_KEY` is not a fallback.
 
-A `TYPE_TEXT` action also
-requires either the `MIDSCENE_JEV_TEXT_API_KEY`,
-`MIDSCENE_JEV_TEXT_BASE_URL`, and `MIDSCENE_JEV_TEXT_MODEL_NAME` variables, or
-the corresponding `MIDSCENE_MODEL_*` variables.
+The client sends the documented System One request body (`model`, `state`, and
+typed `questions`) and requires a provider with that compatible response
+shape. An OpenRouter key is not interchangeable with a TypeSafe key. For the
+OpenRouter Decisions route verified by this project, configure the complete
+endpoint explicitly:
 
-## Register the Midscene Test node
+```sh
+export MIDSCENE_JEV_API_KEY=...
+export MIDSCENE_JEV_BASE_URL=https://openrouter.ai/api/alpha/decisions
+export MIDSCENE_JEV_MODEL_NAME=jev-latest
+```
+
+`MIDSCENE_JEV_BASE_URL` has two supported meanings: a compatible API root, to
+which the client appends `/systemone`, or a complete endpoint ending in
+`/systemone` or `/decisions`, which is used unchanged. Do not use a provider's
+bare website origin unless it actually serves the System One resource there.
+Set `MIDSCENE_JEV_MODEL_NAME` when the provider's model naming differs. Do not
+point this client at a Chat Completions-only endpoint: its request and response
+schema are different. A successful HTML response or an incompatible JSON shape
+is reported as an endpoint-configuration error.
+
+## Compose JEV with native Midscene nodes
+
+JEV does not own text input. Register Midscene's standard nodes in the
+*consumer project* and use `aiInput` to provide caller-chosen text before a
+bounded `jevAct` loop. `createJevNodes()` adds `jevAct`, `jevAssert`, and `jevWaitFor`;
+`aiInput` is available only after the consumer registers an Agent class through
+the public `createMidsceneNodes()` factory.
+
+The following consumer-project configuration requires its own
+`@midscene/web` dependency. It is intentionally not imported by this package
+or by the runnable `example/` directory.
 
 ```ts
-import { defineProjectSetup, defineTestProject } from '@midscene/test/config';
 import { createJevNodes } from '@chlrc/midscene-jev-runner';
+import { defineProjectSetup, defineTestProject } from '@midscene/test/config';
+import { createMidsceneNodes } from '@midscene/test/midscene';
+import { PlaywrightAgent } from '@midscene/web/playwright/agent';
 import { chromium, type Browser, type Page } from 'playwright';
 
 interface ProjectContext {
   browser: Browser;
   page: Page;
+  agent?: PlaywrightAgent;
 }
 
 const setup = defineProjectSetup<ProjectContext>({
   name: 'playwright',
+  platform: 'web',
   async setup({ onTeardown }) {
     const browser = await chromium.launch();
     const page = await browser.newPage();
@@ -64,63 +111,107 @@ const setup = defineProjectSetup<ProjectContext>({
   },
 });
 
-const nodes = createJevNodes<ProjectContext>({
+const midsceneNodes = createMidsceneNodes<ProjectContext>({
+  agentClass: PlaywrightAgent,
+  getAgent: ({ context }) => {
+    context.agent ??= new PlaywrightAgent(context.page);
+    return context.agent;
+  },
+});
+const jevNodes = createJevNodes<ProjectContext>({
   getPage: ({ context }) => context.page,
-  verifyCompletion: async ({ page }) =>
-    page.getByText('Complete', { exact: false }).isVisible(),
 });
 
 export default defineTestProject<ProjectContext>({
-  projects: [{ name: 'jev', files: { include: ['midscene.yaml'] }, setup }],
-  nodes,
+  projects: [
+    {
+      name: 'web',
+      platform: 'web',
+      setup,
+      files: { include: ['cases/**/*.yaml'] },
+    },
+  ],
+  nodes: [...midsceneNodes, ...jevNodes],
 });
 ```
+
+With that registration, a case can explicitly compose the two capabilities:
 
 ```yaml
 cases:
-  - name: JEV completes a browser task
+  - name: Prepare text, complete non-text UI work, then verify
     steps:
+      - aiInput:
+          prompt: The search field
+          value: a caller-provided search term
       - jevAct:
-          goal: Complete the task and leave visible evidence of completion.
-          maxSteps: 20
-          maxTaskMs: 180000
+          goal: Activate the search action for the current query.
+          maxSteps: 4
+          maxTaskMs: 30000
+      - jevAssert:
+          prompt: The requested result and completion evidence are visible.
+          message: The page did not show the expected completion evidence.
+
+      # For an asynchronous result, use jevWaitFor instead of the immediate assertion:
+      # - jevWaitFor:
+      #     prompt: The requested result is visible.
+      #     options: { timeoutMs: 30000, checkIntervalMs: 3000 }
 ```
 
-`verifyCompletion` is strongly recommended for workflows with side effects.
-Without it, `DONE` only means that the model decided the task was complete; it
-does not prove business success.
+Generate the consumer project's Node Spec after changing registrations. It is
+the source of truth for the native `aiInput` input schema in that installed
+Midscene version.
 
-Starting with `0.1.1`, the runner checks completion both after an action and
-before the next model decision, preventing extra operations after an
-asynchronous page transition has completed.
+## Completion and assertion evidence
 
-Starting with `0.1.2`, observations are site-agnostic and workflow-aware. The
-runner exposes accessible controls, field state, visible workflow steps,
-validation feedback, and active dialogs without relying on application-specific
-selectors. It also suppresses repeated semantic failures across incidental DOM
-rerenders, rechecks targets for occlusion immediately before execution, and can
-dismiss unrelated active layers without taking ownership of the `Page`.
+Provide `verifyCompletion` for workflows with side effects. A JEV `DONE`
+decision is model output; it does not establish business success. The runner
+calls the verifier after an action and again before a later decision so that an
+asynchronous completion can stop the loop without another mutation.
 
-## Direct use
+`jevAssert` and `evaluateJevAssertion` are read-only. They ask JEV separately
+whether the condition is true and whether the observed evidence is sufficient.
+They pass only when both model-assessed probabilities meet their configured
+thresholds. With sufficient evidence, a condition probability at or below the
+symmetric fail threshold returns `fail`. Insufficient evidence or a condition
+probability between the pass and fail thresholds returns `indeterminate`.
+Those probabilities are not a deterministic guarantee that JEV saw every hidden
+or external gap. Use deterministic application or API checks for facts outside
+the current page.
 
-```ts
-import { runJev } from '@chlrc/midscene-jev-runner';
+`jevWaitFor` repeats the same read-only check, using `prompt` and optional
+`options.context`. `options.timeoutMs` defaults to 15000 and
+`options.checkIntervalMs` defaults to 3000. Checks start at least that interval
+apart; a check started within the timeout window may finish afterward. A pass
+returns the check count, last assertion, and aggregate model usage. A timeout
+fails the Step with the same diagnostic data. Provider and observation errors
+fail immediately, and cancellation stops the wait. Each check makes a model
+request, so use a fixed `wait` Node when no semantic condition is needed.
 
-const result = await runJev(page, {
-  goal: 'Complete the form',
-  verifyCompletion: async ({ page }) => page.getByText('Complete').isVisible(),
-});
-```
+## Migrating from the text path
 
-See [`example/`](./example) for a complete Midscene Test configuration.
+The public `TYPE_TEXT` action, text generation, filling, clearing, `textUsage`, and all
+`MIDSCENE_JEV_TEXT_*` / `MIDSCENE_MODEL_*` text-provider configuration have
+been removed. Move deterministic input values into a standard Midscene
+`aiInput` step registered by the consumer's Agent. Keep `jevAct` for the
+subsequent bounded, non-text ReAct loop and `jevAssert` for evidence on the
+resulting page state.
 
-## Security and ownership boundaries
+## Safety and generality
 
-- The runner strips query strings and fragments from URLs sent in observations.
-- Password and file inputs are excluded from the action space.
-- The runner never logs API keys or authorization headers.
-- The caller owns authentication, request interception, navigation, cleanup,
-  and any domain-specific write guards.
+- The caller owns authentication, navigation, request interception, cleanup,
+  and domain-specific write guards.
+- Query strings and fragments are stripped from URLs sent in observations;
+  password and file inputs are excluded from JEV's action space.
+- Provider selection is transport configuration, never a site-specific branch.
+- Candidate filtering must come from observable HTML, ARIA, disabled/visible
+  state, or an explicit safety boundary. It cannot encode a business name,
+  route, fixed field text, ID, or presumed operation order. Text and validation
+  clues can rank candidates, but they cannot turn a business assumption into a
+  global hard filter.
+
+The runnable [`example/`](./example) uses only this package's non-text nodes
+and existing dependencies. It does not claim that `aiInput` is registered.
 
 ## License
 

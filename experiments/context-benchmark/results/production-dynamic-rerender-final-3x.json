@@ -1,0 +1,132 @@
+{
+  "generatedAt": "2026-09-22T09:50:24.603Z",
+  "model": "~typesafe/jev-latest",
+  "repeats": 3,
+  "fixtures": ["dynamic-rerender"],
+  "summary": {
+    "runs": 3,
+    "completed": 3,
+    "completionRate": 1,
+    "decisionCalls": 6,
+    "inputTokens": 8073,
+    "outputTokens": 372,
+    "cost": 0.000339066,
+    "averageElapsedMs": 1741.6666666666667
+  },
+  "results": [
+    {
+      "fixtureId": "dynamic-rerender",
+      "repeat": 1,
+      "completed": true,
+      "elapsedMs": 1861,
+      "result": {
+        "steps": 2,
+        "elapsedMs": 1842,
+        "usage": {
+          "calls": 2,
+          "inputTokens": 2691,
+          "outputTokens": 124,
+          "cost": 0.000113022
+        },
+        "textUsage": {
+          "calls": 0,
+          "inputTokens": 0,
+          "outputTokens": 0
+        },
+        "staleDecisions": 0,
+        "actionErrors": 0,
+        "rejectedCompletions": 0,
+        "rejectedBlocks": 0,
+        "completionVerified": true
+      },
+      "decisions": [
+        {
+          "step": 1,
+          "operation": "CLICK",
+          "label": "Save profile"
+        },
+        {
+          "step": 2,
+          "operation": "CLICK",
+          "label": "Save profile"
+        }
+      ]
+    },
+    {
+      "fixtureId": "dynamic-rerender",
+      "repeat": 2,
+      "completed": true,
+      "elapsedMs": 1585,
+      "result": {
+        "steps": 2,
+        "elapsedMs": 1569,
+        "usage": {
+          "calls": 2,
+          "inputTokens": 2691,
+          "outputTokens": 124,
+          "cost": 0.000113022
+        },
+        "textUsage": {
+          "calls": 0,
+          "inputTokens": 0,
+          "outputTokens": 0
+        },
+        "staleDecisions": 0,
+        "actionErrors": 0,
+        "rejectedCompletions": 0,
+        "rejectedBlocks": 0,
+        "completionVerified": true
+      },
+      "decisions": [
+        {
+          "step": 1,
+          "operation": "CLICK",
+          "label": "Save profile"
+        },
+        {
+          "step": 2,
+          "operation": "CLICK",
+          "label": "Save profile"
+        }
+      ]
+    },
+    {
+      "fixtureId": "dynamic-rerender",
+      "repeat": 3,
+      "completed": true,
+      "elapsedMs": 1779,
+      "result": {
+        "steps": 2,
+        "elapsedMs": 1757,
+        "usage": {
+          "calls": 2,
+          "inputTokens": 2691,
+          "outputTokens": 124,
+          "cost": 0.000113022
+        },
+        "textUsage": {
+          "calls": 0,
+          "inputTokens": 0,
+          "outputTokens": 0
+        },
+        "staleDecisions": 0,
+        "actionErrors": 0,
+        "rejectedCompletions": 0,
+        "rejectedBlocks": 0,
+        "completionVerified": true
+      },
+      "decisions": [
+        {
+          "step": 1,
+          "operation": "CLICK",
+          "label": "Save profile"
+        },
+        {
+          "step": 2,
+          "operation": "CLICK",
+          "label": "Save profile"
+        }
+      ]
+    }
+  ]
+}

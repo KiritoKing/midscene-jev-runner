@@ -2,14 +2,31 @@ import type { JevOperation } from './types';
 
 export type BrowserActionKind =
   | 'click'
-  | 'fill'
   | 'select'
-  | 'clear'
   | 'scroll'
   | 'wait'
   | 'dismiss';
 
+export type BrowserFactKind = BrowserActionKind | 'fill' | 'text';
+
 export type BrowserRegion = 'dialog' | 'main' | 'navigation' | 'content';
+
+export type BrowserNameSource =
+  | 'aria'
+  | 'native-label'
+  | 'attribute'
+  | 'content'
+  | 'nearby'
+  | 'inferred'
+  | 'unknown';
+
+export type BrowserActionEffect = 'activate' | 'deactivate';
+
+export type BrowserTaskAlignment =
+  | 'label-and-scope'
+  | 'label'
+  | 'scope'
+  | 'none';
 
 export interface BrowserAction {
   id: string;
@@ -25,7 +42,51 @@ export interface BrowserAction {
   selected?: string;
   expanded?: string;
   region?: BrowserRegion;
+  groupId?: string;
+  groupLabel?: string;
+  layerPath?: string[];
+  localContext?: string;
+  nameSource?: BrowserNameSource;
+  semanticConfidence?: number;
+  clickabilityEvidence?: string;
+  taskAlignment?: BrowserTaskAlignment;
+  matchedGoalTerms?: number;
+  effect?: BrowserActionEffect;
+  framePath?: number[];
+  frameUrl?: string;
+  frameName?: string;
+  frameDocumentId?: string;
+  selector?: string;
+  score?: number;
   signature?: string;
+}
+
+export interface BrowserFact {
+  id: string;
+  label: string;
+  role: string;
+  kind: BrowserFactKind;
+  currentValue?: string;
+  checked?: string;
+  selected?: string;
+  expanded?: string;
+  region: BrowserRegion;
+  groupId: string;
+  layerPath: string[];
+  localContext?: string;
+  nameSource: BrowserNameSource;
+  semanticConfidence: number;
+  clickabilityEvidence?: string;
+  taskAlignment?: BrowserTaskAlignment;
+  matchedGoalTerms?: number;
+  framePath?: number[];
+  frameUrl?: string;
+  frameName?: string;
+  visible: boolean;
+  actionable: boolean;
+  covered: boolean;
+  disabled: boolean;
+  score: number;
 }
 
 export interface BrowserWorkflowStep {
@@ -34,9 +95,25 @@ export interface BrowserWorkflowStep {
   status: string;
 }
 
+export interface BrowserValidationIssue {
+  message: string;
+  field?: string;
+  groupId?: string;
+  controlId?: string;
+  required: boolean;
+}
+
 export interface BrowserActiveLayer {
   kind: 'dialog' | 'overlay';
   label: string;
+}
+
+export interface BrowserLayer {
+  id: string;
+  kind: 'page' | 'dialog' | 'popover' | 'menu' | 'listbox' | 'overlay';
+  label: string;
+  parentId?: string;
+  blocking: boolean;
 }
 
 export interface BrowserSnapshot {
@@ -46,11 +123,16 @@ export interface BrowserSnapshot {
   marker: string;
   progressMarker: string;
   actions: BrowserAction[];
+  facts: BrowserFact[];
+  layers: BrowserLayer[];
   alerts: string[];
+  validationIssues: BrowserValidationIssue[];
   workflowSteps: BrowserWorkflowStep[];
   activeLayer?: BrowserActiveLayer;
   loading: boolean;
   omittedActions: number;
+  omittedFacts?: number;
+  textTruncated?: boolean;
 }
 
 export interface JevRecentAction {
@@ -65,17 +147,27 @@ export interface JevRecentAction {
     | 'failed'
     | 'rejected';
   error?: string;
-  snapshotMarker?: string;
+  fromProgressMarker?: string;
+  toProgressMarker?: string;
   signature?: string;
   recoveryEpoch?: number;
   feedback?: string[];
+  group?: string;
 }
 
-interface JevQuestion {
+interface JevChoiceQuestion {
   type: 'choice';
   criteria: Record<string, unknown>;
   instructions: Record<string, unknown>;
 }
+
+interface JevNoulQuestion {
+  type: 'noul';
+  criteria?: Record<'true' | 'false', string>;
+  instructions: string | Record<string, unknown>;
+}
+
+export type JevQuestion = JevChoiceQuestion | JevNoulQuestion;
 
 export interface DecisionRequest {
   body: {
@@ -96,11 +188,15 @@ export interface UsageResponse {
 }
 
 export interface JevResponse {
-  answers?: Record<string, { type?: unknown; choice?: unknown }>;
-  usage?: UsageResponse;
-}
-
-export interface TextResponse {
-  choices?: Array<{ message?: { content?: unknown } }>;
+  answers?: Record<
+    string,
+    {
+      type?: unknown;
+      choice?: unknown;
+      noul?: unknown;
+      probabilities?: unknown;
+      confidence?: unknown;
+    }
+  >;
   usage?: UsageResponse;
 }

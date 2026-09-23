@@ -1,0 +1,910 @@
+{
+  "generatedAt": "2026-09-22T09:16:17.796Z",
+  "model": "~typesafe/jev-latest",
+  "repeats": 1,
+  "configurations": [
+    "current-flat",
+    "ranked-dom-flat",
+    "hybrid-flat",
+    "hybrid-adaptive"
+  ],
+  "fixtures": [
+    "weak-semantics",
+    "duplicate-labels",
+    "candidate-budget",
+    "nested-portal",
+    "layer-recovery",
+    "disabled-and-covered",
+    "dynamic-rerender",
+    "frame-shadow",
+    "nested-scroll"
+  ],
+  "aggregates": [
+    {
+      "configuration": "hybrid-dom-semantic-geometry/flat",
+      "runs": 9,
+      "completionRate": 0.8888888888888888,
+      "targetRecall": 0.8888888888888888,
+      "targetTop1": 0.7592592592592593,
+      "recoverySuccess": 1,
+      "averageContextBytes": 7648.333333333333,
+      "averageDecisionCalls": 1.8888888888888888,
+      "averageInputTokens": 3659.6666666666665,
+      "averageElapsedMs": 802.6666666666666,
+      "totalCost": 0.001383354,
+      "actionErrors": 0,
+      "failures": [
+        {
+          "fixtureId": "disabled-and-covered",
+          "failure": "Expected CLICK, but JEV selected BLOCKED."
+        }
+      ],
+      "score": 0.8172443147934187
+    },
+    {
+      "configuration": "hybrid-dom-semantic-geometry/adaptive-two-stage",
+      "runs": 9,
+      "completionRate": 0.7777777777777778,
+      "targetRecall": 0.8518518518518517,
+      "targetTop1": 0.7592592592592593,
+      "recoverySuccess": 0.6666666666666666,
+      "averageContextBytes": 7311.888888888889,
+      "averageDecisionCalls": 1.7777777777777777,
+      "averageInputTokens": 3337.1111111111113,
+      "averageElapsedMs": 861.2222222222222,
+      "totalCost": 0.0012614280000000002,
+      "actionErrors": 0,
+      "failures": [
+        {
+          "fixtureId": "nested-portal",
+          "failure": "JEV benchmark request failed with HTTP 529: {\"error\":{\"message\":\"HTTP 529: {\\\"detail\\\":{\\\"error_type\\\":\\\"system_overloaded\\\",\\\"message\\\":\\\"We are currently experiencing high traffic and cannot process your request. Please try again later.\\\"}}\",\"code\":529}}"
+        },
+        {
+          "fixtureId": "disabled-and-covered",
+          "failure": "Expected CLICK, but JEV selected BLOCKED."
+        }
+      ],
+      "score": 0.7283735442711817
+    },
+    {
+      "configuration": "ranked-dom/flat",
+      "runs": 9,
+      "completionRate": 0.6666666666666666,
+      "targetRecall": 0.7777777777777778,
+      "targetTop1": 0.7037037037037037,
+      "recoverySuccess": 0.6666666666666666,
+      "averageContextBytes": 9039.777777777777,
+      "averageDecisionCalls": 1.4444444444444444,
+      "averageInputTokens": 4451,
+      "averageElapsedMs": 598.1111111111111,
+      "totalCost": 0.0016824780000000003,
+      "actionErrors": 0,
+      "failures": [
+        {
+          "fixtureId": "disabled-and-covered",
+          "failure": "Expected CLICK, but JEV selected BLOCKED."
+        },
+        {
+          "fixtureId": "frame-shadow",
+          "failure": "Expected CLICK, but JEV selected BLOCKED."
+        },
+        {
+          "fixtureId": "nested-scroll",
+          "failure": "Expected SCROLL, but JEV selected DONE."
+        }
+      ],
+      "score": 0.6518518518518518
+    },
+    {
+      "configuration": "current-v0.1.2/flat",
+      "runs": 9,
+      "completionRate": 0.5555555555555556,
+      "targetRecall": 0.5555555555555556,
+      "targetTop1": 0.31481481481481477,
+      "recoverySuccess": 0.6666666666666666,
+      "averageContextBytes": 5060.111111111111,
+      "averageDecisionCalls": 1.5555555555555556,
+      "averageInputTokens": 2320,
+      "averageElapsedMs": 620.5555555555555,
+      "totalCost": 0.0008769599999999999,
+      "actionErrors": 0,
+      "failures": [
+        {
+          "fixtureId": "weak-semantics",
+          "failure": "JEV selected Open (no oracle id) instead of notification-preferences."
+        },
+        {
+          "fixtureId": "candidate-budget",
+          "failure": "JEV selected Item 1 (no oracle id) instead of approve-final-review."
+        },
+        {
+          "fixtureId": "frame-shadow",
+          "failure": "Expected CLICK, but JEV selected BLOCKED."
+        },
+        {
+          "fixtureId": "nested-scroll",
+          "failure": "Expected SCROLL, but JEV selected BLOCKED."
+        }
+      ],
+      "score": 0.5569869065210642
+    }
+  ],
+  "results": [
+    {
+      "fixtureId": "weak-semantics",
+      "strategyId": "current-v0.1.2",
+      "selectionMode": "flat",
+      "completed": false,
+      "targetRecall": 0,
+      "targetTop1": 0,
+      "candidateCount": 1,
+      "actionableCount": 1,
+      "contextBytes": 1895,
+      "decisionCalls": 1,
+      "inputTokens": 845,
+      "outputTokens": 62,
+      "cost": 0.00003549,
+      "elapsedMs": 608,
+      "actionErrors": 0,
+      "recoveryActions": 0,
+      "unsupported": [
+        "Facts filtered as hidden, covered, disabled, or outside the active layer are not retained.",
+        "Iframe, shadow-root, and nested-scroll traversal are unsupported."
+      ],
+      "failure": "JEV selected Open (no oracle id) instead of notification-preferences."
+    },
+    {
+      "fixtureId": "duplicate-labels",
+      "strategyId": "current-v0.1.2",
+      "selectionMode": "flat",
+      "completed": true,
+      "targetRecall": 1,
+      "targetTop1": 0,
+      "candidateCount": 3,
+      "actionableCount": 3,
+      "contextBytes": 2837,
+      "decisionCalls": 1,
+      "inputTokens": 1248,
+      "outputTokens": 76,
+      "cost": 0.000052416,
+      "elapsedMs": 481,
+      "actionErrors": 0,
+      "recoveryActions": 0,
+      "unsupported": [
+        "Facts filtered as hidden, covered, disabled, or outside the active layer are not retained.",
+        "Iframe, shadow-root, and nested-scroll traversal are unsupported."
+      ]
+    },
+    {
+      "fixtureId": "candidate-budget",
+      "strategyId": "current-v0.1.2",
+      "selectionMode": "flat",
+      "completed": false,
+      "targetRecall": 0,
+      "targetTop1": 0,
+      "candidateCount": 250,
+      "actionableCount": 250,
+      "contextBytes": 15156,
+      "decisionCalls": 1,
+      "inputTokens": 7407,
+      "outputTokens": 238,
+      "cost": 0.000311094,
+      "elapsedMs": 363,
+      "actionErrors": 0,
+      "recoveryActions": 0,
+      "unsupported": [
+        "Facts filtered as hidden, covered, disabled, or outside the active layer are not retained.",
+        "Iframe, shadow-root, and nested-scroll traversal are unsupported."
+      ],
+      "failure": "JEV selected Item 1 (no oracle id) instead of approve-final-review."
+    },
+    {
+      "fixtureId": "nested-portal",
+      "strategyId": "current-v0.1.2",
+      "selectionMode": "flat",
+      "completed": true,
+      "targetRecall": 1,
+      "targetTop1": 0.3333333333333333,
+      "candidateCount": 3,
+      "actionableCount": 3,
+      "contextBytes": 10445,
+      "decisionCalls": 3,
+      "inputTokens": 4411,
+      "outputTokens": 306,
+      "cost": 0.000185262,
+      "elapsedMs": 1166,
+      "actionErrors": 0,
+      "recoveryActions": 0,
+      "unsupported": [
+        "Facts filtered as hidden, covered, disabled, or outside the active layer are not retained.",
+        "Iframe, shadow-root, and nested-scroll traversal are unsupported."
+      ]
+    },
+    {
+      "fixtureId": "layer-recovery",
+      "strategyId": "current-v0.1.2",
+      "selectionMode": "flat",
+      "completed": true,
+      "targetRecall": 1,
+      "targetTop1": 1,
+      "candidateCount": 2,
+      "actionableCount": 2,
+      "contextBytes": 4768,
+      "decisionCalls": 2,
+      "inputTokens": 2097,
+      "outputTokens": 159,
+      "cost": 0.000088074,
+      "elapsedMs": 715,
+      "actionErrors": 0,
+      "recoveryActions": 1,
+      "unsupported": [
+        "Facts filtered as hidden, covered, disabled, or outside the active layer are not retained.",
+        "Iframe, shadow-root, and nested-scroll traversal are unsupported."
+      ]
+    },
+    {
+      "fixtureId": "disabled-and-covered",
+      "strategyId": "current-v0.1.2",
+      "selectionMode": "flat",
+      "completed": true,
+      "targetRecall": 1,
+      "targetTop1": 0.5,
+      "candidateCount": 2,
+      "actionableCount": 2,
+      "contextBytes": 4350,
+      "decisionCalls": 2,
+      "inputTokens": 1967,
+      "outputTokens": 131,
+      "cost": 0.000082614,
+      "elapsedMs": 821,
+      "actionErrors": 0,
+      "recoveryActions": 0,
+      "unsupported": [
+        "Facts filtered as hidden, covered, disabled, or outside the active layer are not retained.",
+        "Iframe, shadow-root, and nested-scroll traversal are unsupported."
+      ]
+    },
+    {
+      "fixtureId": "dynamic-rerender",
+      "strategyId": "current-v0.1.2",
+      "selectionMode": "flat",
+      "completed": true,
+      "targetRecall": 1,
+      "targetTop1": 1,
+      "candidateCount": 1,
+      "actionableCount": 1,
+      "contextBytes": 3768,
+      "decisionCalls": 2,
+      "inputTokens": 1744,
+      "outputTokens": 124,
+      "cost": 0.000073248,
+      "elapsedMs": 791,
+      "actionErrors": 0,
+      "recoveryActions": 0,
+      "unsupported": [
+        "Facts filtered as hidden, covered, disabled, or outside the active layer are not retained.",
+        "Iframe, shadow-root, and nested-scroll traversal are unsupported."
+      ]
+    },
+    {
+      "fixtureId": "frame-shadow",
+      "strategyId": "current-v0.1.2",
+      "selectionMode": "flat",
+      "completed": false,
+      "targetRecall": 0,
+      "targetTop1": 0,
+      "candidateCount": 0,
+      "actionableCount": 0,
+      "contextBytes": 1055,
+      "decisionCalls": 1,
+      "inputTokens": 549,
+      "outputTokens": 35,
+      "cost": 0.000023058,
+      "elapsedMs": 336,
+      "actionErrors": 0,
+      "recoveryActions": 0,
+      "unsupported": [
+        "Facts filtered as hidden, covered, disabled, or outside the active layer are not retained.",
+        "Iframe, shadow-root, and nested-scroll traversal are unsupported."
+      ],
+      "failure": "Expected CLICK, but JEV selected BLOCKED."
+    },
+    {
+      "fixtureId": "nested-scroll",
+      "strategyId": "current-v0.1.2",
+      "selectionMode": "flat",
+      "completed": false,
+      "targetRecall": 0,
+      "targetTop1": 0,
+      "candidateCount": 0,
+      "actionableCount": 0,
+      "contextBytes": 1267,
+      "decisionCalls": 1,
+      "inputTokens": 612,
+      "outputTokens": 35,
+      "cost": 0.000025704,
+      "elapsedMs": 304,
+      "actionErrors": 0,
+      "recoveryActions": 0,
+      "unsupported": [
+        "Facts filtered as hidden, covered, disabled, or outside the active layer are not retained.",
+        "Iframe, shadow-root, and nested-scroll traversal are unsupported."
+      ],
+      "failure": "Expected SCROLL, but JEV selected BLOCKED."
+    },
+    {
+      "fixtureId": "weak-semantics",
+      "strategyId": "ranked-dom",
+      "selectionMode": "flat",
+      "completed": true,
+      "targetRecall": 1,
+      "targetTop1": 1,
+      "candidateCount": 2,
+      "actionableCount": 2,
+      "contextBytes": 2603,
+      "decisionCalls": 1,
+      "inputTokens": 1103,
+      "outputTokens": 75,
+      "cost": 0.000046326,
+      "elapsedMs": 510,
+      "actionErrors": 0,
+      "recoveryActions": 0,
+      "unsupported": [
+        "Accessibility-tree extraction is unsupported; this strategy uses DOM semantics only."
+      ]
+    },
+    {
+      "fixtureId": "duplicate-labels",
+      "strategyId": "ranked-dom",
+      "selectionMode": "flat",
+      "completed": true,
+      "targetRecall": 1,
+      "targetTop1": 1,
+      "candidateCount": 3,
+      "actionableCount": 3,
+      "contextBytes": 2912,
+      "decisionCalls": 1,
+      "inputTokens": 1271,
+      "outputTokens": 84,
+      "cost": 0.000053382,
+      "elapsedMs": 519,
+      "actionErrors": 0,
+      "recoveryActions": 0,
+      "unsupported": [
+        "Accessibility-tree extraction is unsupported; this strategy uses DOM semantics only."
+      ]
+    },
+    {
+      "fixtureId": "candidate-budget",
+      "strategyId": "ranked-dom",
+      "selectionMode": "flat",
+      "completed": true,
+      "targetRecall": 1,
+      "targetTop1": 1,
+      "candidateCount": 36,
+      "actionableCount": 36,
+      "contextBytes": 47286,
+      "decisionCalls": 1,
+      "inputTokens": 25452,
+      "outputTokens": 291,
+      "cost": 0.001068984,
+      "elapsedMs": 672,
+      "actionErrors": 0,
+      "recoveryActions": 0,
+      "unsupported": [
+        "Accessibility-tree extraction is unsupported; this strategy uses DOM semantics only."
+      ]
+    },
+    {
+      "fixtureId": "nested-portal",
+      "strategyId": "ranked-dom",
+      "selectionMode": "flat",
+      "completed": true,
+      "targetRecall": 1,
+      "targetTop1": 0.3333333333333333,
+      "candidateCount": 6,
+      "actionableCount": 6,
+      "contextBytes": 12149,
+      "decisionCalls": 3,
+      "inputTokens": 5182,
+      "outputTokens": 279,
+      "cost": 0.00021764400000000002,
+      "elapsedMs": 1226,
+      "actionErrors": 0,
+      "recoveryActions": 0,
+      "unsupported": [
+        "Accessibility-tree extraction is unsupported; this strategy uses DOM semantics only."
+      ]
+    },
+    {
+      "fixtureId": "layer-recovery",
+      "strategyId": "ranked-dom",
+      "selectionMode": "flat",
+      "completed": true,
+      "targetRecall": 1,
+      "targetTop1": 1,
+      "candidateCount": 2,
+      "actionableCount": 1,
+      "contextBytes": 4138,
+      "decisionCalls": 2,
+      "inputTokens": 1913,
+      "outputTokens": 136,
+      "cost": 0.00008034599999999999,
+      "elapsedMs": 822,
+      "actionErrors": 0,
+      "recoveryActions": 1,
+      "unsupported": [
+        "Accessibility-tree extraction is unsupported; this strategy uses DOM semantics only."
+      ]
+    },
+    {
+      "fixtureId": "disabled-and-covered",
+      "strategyId": "ranked-dom",
+      "selectionMode": "flat",
+      "completed": false,
+      "targetRecall": 0.5,
+      "targetTop1": 0.5,
+      "candidateCount": 3,
+      "actionableCount": 1,
+      "contextBytes": 2919,
+      "decisionCalls": 1,
+      "inputTokens": 1168,
+      "outputTokens": 68,
+      "cost": 0.000049056,
+      "elapsedMs": 283,
+      "actionErrors": 0,
+      "recoveryActions": 0,
+      "unsupported": [
+        "Accessibility-tree extraction is unsupported; this strategy uses DOM semantics only."
+      ],
+      "failure": "Expected CLICK, but JEV selected BLOCKED."
+    },
+    {
+      "fixtureId": "dynamic-rerender",
+      "strategyId": "ranked-dom",
+      "selectionMode": "flat",
+      "completed": true,
+      "targetRecall": 1,
+      "targetTop1": 1,
+      "candidateCount": 1,
+      "actionableCount": 1,
+      "contextBytes": 3764,
+      "decisionCalls": 2,
+      "inputTokens": 1735,
+      "outputTokens": 132,
+      "cost": 0.00007287,
+      "elapsedMs": 734,
+      "actionErrors": 0,
+      "recoveryActions": 0,
+      "unsupported": [
+        "Accessibility-tree extraction is unsupported; this strategy uses DOM semantics only."
+      ]
+    },
+    {
+      "fixtureId": "frame-shadow",
+      "strategyId": "ranked-dom",
+      "selectionMode": "flat",
+      "completed": false,
+      "targetRecall": 0,
+      "targetTop1": 0,
+      "candidateCount": 1,
+      "actionableCount": 1,
+      "contextBytes": 1878,
+      "decisionCalls": 1,
+      "inputTokens": 847,
+      "outputTokens": 68,
+      "cost": 0.000035574,
+      "elapsedMs": 362,
+      "actionErrors": 0,
+      "recoveryActions": 0,
+      "unsupported": [
+        "Accessibility-tree extraction is unsupported; this strategy uses DOM semantics only.",
+        "Iframe traversal is unsupported; ignored 1 embedded document(s)."
+      ],
+      "failure": "Expected CLICK, but JEV selected BLOCKED."
+    },
+    {
+      "fixtureId": "nested-scroll",
+      "strategyId": "ranked-dom",
+      "selectionMode": "flat",
+      "completed": false,
+      "targetRecall": 0.5,
+      "targetTop1": 0.5,
+      "candidateCount": 2,
+      "actionableCount": 1,
+      "contextBytes": 3709,
+      "decisionCalls": 1,
+      "inputTokens": 1388,
+      "outputTokens": 67,
+      "cost": 0.000058296,
+      "elapsedMs": 255,
+      "actionErrors": 0,
+      "recoveryActions": 0,
+      "unsupported": [
+        "Accessibility-tree extraction is unsupported; this strategy uses DOM semantics only."
+      ],
+      "failure": "Expected SCROLL, but JEV selected DONE."
+    },
+    {
+      "fixtureId": "weak-semantics",
+      "strategyId": "hybrid-dom-semantic-geometry",
+      "selectionMode": "flat",
+      "completed": true,
+      "targetRecall": 1,
+      "targetTop1": 1,
+      "candidateCount": 1,
+      "actionableCount": 1,
+      "contextBytes": 2118,
+      "decisionCalls": 1,
+      "inputTokens": 896,
+      "outputTokens": 70,
+      "cost": 0.000037632,
+      "elapsedMs": 462,
+      "actionErrors": 0,
+      "recoveryActions": 0,
+      "unsupported": [
+        "accessibility-tree: no portable public Playwright page-level AX snapshot is used; DOM semantic fallback active"
+      ]
+    },
+    {
+      "fixtureId": "duplicate-labels",
+      "strategyId": "hybrid-dom-semantic-geometry",
+      "selectionMode": "flat",
+      "completed": true,
+      "targetRecall": 1,
+      "targetTop1": 1,
+      "candidateCount": 3,
+      "actionableCount": 3,
+      "contextBytes": 2764,
+      "decisionCalls": 1,
+      "inputTokens": 1255,
+      "outputTokens": 92,
+      "cost": 0.00005271,
+      "elapsedMs": 450,
+      "actionErrors": 0,
+      "recoveryActions": 0,
+      "unsupported": [
+        "accessibility-tree: no portable public Playwright page-level AX snapshot is used; DOM semantic fallback active"
+      ]
+    },
+    {
+      "fixtureId": "candidate-budget",
+      "strategyId": "hybrid-dom-semantic-geometry",
+      "selectionMode": "flat",
+      "completed": true,
+      "targetRecall": 1,
+      "targetTop1": 1,
+      "candidateCount": 160,
+      "actionableCount": 160,
+      "contextBytes": 24029,
+      "decisionCalls": 1,
+      "inputTokens": 12505,
+      "outputTokens": 397,
+      "cost": 0.00052521,
+      "elapsedMs": 643,
+      "actionErrors": 0,
+      "recoveryActions": 0,
+      "unsupported": [
+        "accessibility-tree: no portable public Playwright page-level AX snapshot is used; DOM semantic fallback active"
+      ]
+    },
+    {
+      "fixtureId": "nested-portal",
+      "strategyId": "hybrid-dom-semantic-geometry",
+      "selectionMode": "flat",
+      "completed": true,
+      "targetRecall": 1,
+      "targetTop1": 0.3333333333333333,
+      "candidateCount": 5,
+      "actionableCount": 3,
+      "contextBytes": 9922,
+      "decisionCalls": 3,
+      "inputTokens": 4638,
+      "outputTokens": 276,
+      "cost": 0.000194796,
+      "elapsedMs": 1339,
+      "actionErrors": 0,
+      "recoveryActions": 0,
+      "unsupported": [
+        "accessibility-tree: no portable public Playwright page-level AX snapshot is used; DOM semantic fallback active"
+      ]
+    },
+    {
+      "fixtureId": "layer-recovery",
+      "strategyId": "hybrid-dom-semantic-geometry",
+      "selectionMode": "flat",
+      "completed": true,
+      "targetRecall": 1,
+      "targetTop1": 1,
+      "candidateCount": 2,
+      "actionableCount": 1,
+      "contextBytes": 4147,
+      "decisionCalls": 2,
+      "inputTokens": 1950,
+      "outputTokens": 144,
+      "cost": 0.0000819,
+      "elapsedMs": 796,
+      "actionErrors": 0,
+      "recoveryActions": 1,
+      "unsupported": [
+        "accessibility-tree: no portable public Playwright page-level AX snapshot is used; DOM semantic fallback active"
+      ]
+    },
+    {
+      "fixtureId": "disabled-and-covered",
+      "strategyId": "hybrid-dom-semantic-geometry",
+      "selectionMode": "flat",
+      "completed": false,
+      "targetRecall": 0,
+      "targetTop1": 0,
+      "candidateCount": 2,
+      "actionableCount": 0,
+      "contextBytes": 1814,
+      "decisionCalls": 1,
+      "inputTokens": 827,
+      "outputTokens": 35,
+      "cost": 0.000034734,
+      "elapsedMs": 299,
+      "actionErrors": 0,
+      "recoveryActions": 0,
+      "unsupported": [
+        "accessibility-tree: no portable public Playwright page-level AX snapshot is used; DOM semantic fallback active"
+      ],
+      "failure": "Expected CLICK, but JEV selected BLOCKED."
+    },
+    {
+      "fixtureId": "dynamic-rerender",
+      "strategyId": "hybrid-dom-semantic-geometry",
+      "selectionMode": "flat",
+      "completed": true,
+      "targetRecall": 1,
+      "targetTop1": 1,
+      "candidateCount": 1,
+      "actionableCount": 1,
+      "contextBytes": 3810,
+      "decisionCalls": 2,
+      "inputTokens": 1770,
+      "outputTokens": 140,
+      "cost": 0.00007434,
+      "elapsedMs": 776,
+      "actionErrors": 0,
+      "recoveryActions": 0,
+      "unsupported": [
+        "accessibility-tree: no portable public Playwright page-level AX snapshot is used; DOM semantic fallback active"
+      ]
+    },
+    {
+      "fixtureId": "frame-shadow",
+      "strategyId": "hybrid-dom-semantic-geometry",
+      "selectionMode": "flat",
+      "completed": true,
+      "targetRecall": 1,
+      "targetTop1": 1,
+      "candidateCount": 2,
+      "actionableCount": 2,
+      "contextBytes": 3191,
+      "decisionCalls": 1,
+      "inputTokens": 1325,
+      "outputTokens": 108,
+      "cost": 0.00005565,
+      "elapsedMs": 551,
+      "actionErrors": 0,
+      "recoveryActions": 0,
+      "unsupported": [
+        "accessibility-tree: no portable public Playwright page-level AX snapshot is used; DOM semantic fallback active"
+      ]
+    },
+    {
+      "fixtureId": "nested-scroll",
+      "strategyId": "hybrid-dom-semantic-geometry",
+      "selectionMode": "flat",
+      "completed": true,
+      "targetRecall": 1,
+      "targetTop1": 0.5,
+      "candidateCount": 2,
+      "actionableCount": 2,
+      "contextBytes": 17040,
+      "decisionCalls": 5,
+      "inputTokens": 7771,
+      "outputTokens": 396,
+      "cost": 0.00032638200000000006,
+      "elapsedMs": 1908,
+      "actionErrors": 0,
+      "recoveryActions": 4,
+      "unsupported": [
+        "accessibility-tree: no portable public Playwright page-level AX snapshot is used; DOM semantic fallback active"
+      ]
+    },
+    {
+      "fixtureId": "weak-semantics",
+      "strategyId": "hybrid-dom-semantic-geometry",
+      "selectionMode": "adaptive-two-stage",
+      "completed": true,
+      "targetRecall": 1,
+      "targetTop1": 1,
+      "candidateCount": 1,
+      "actionableCount": 1,
+      "contextBytes": 2118,
+      "decisionCalls": 1,
+      "inputTokens": 896,
+      "outputTokens": 70,
+      "cost": 0.000037632,
+      "elapsedMs": 396,
+      "actionErrors": 0,
+      "recoveryActions": 0,
+      "unsupported": [
+        "accessibility-tree: no portable public Playwright page-level AX snapshot is used; DOM semantic fallback active"
+      ]
+    },
+    {
+      "fixtureId": "duplicate-labels",
+      "strategyId": "hybrid-dom-semantic-geometry",
+      "selectionMode": "adaptive-two-stage",
+      "completed": true,
+      "targetRecall": 1,
+      "targetTop1": 1,
+      "candidateCount": 3,
+      "actionableCount": 3,
+      "contextBytes": 2764,
+      "decisionCalls": 2,
+      "inputTokens": 1629,
+      "outputTokens": 107,
+      "cost": 0.000068418,
+      "elapsedMs": 658,
+      "actionErrors": 0,
+      "recoveryActions": 0,
+      "unsupported": [
+        "accessibility-tree: no portable public Playwright page-level AX snapshot is used; DOM semantic fallback active"
+      ]
+    },
+    {
+      "fixtureId": "candidate-budget",
+      "strategyId": "hybrid-dom-semantic-geometry",
+      "selectionMode": "adaptive-two-stage",
+      "completed": true,
+      "targetRecall": 1,
+      "targetTop1": 1,
+      "candidateCount": 160,
+      "actionableCount": 160,
+      "contextBytes": 24029,
+      "decisionCalls": 1,
+      "inputTokens": 12505,
+      "outputTokens": 397,
+      "cost": 0.00052521,
+      "elapsedMs": 579,
+      "actionErrors": 0,
+      "recoveryActions": 0,
+      "unsupported": [
+        "accessibility-tree: no portable public Playwright page-level AX snapshot is used; DOM semantic fallback active"
+      ]
+    },
+    {
+      "fixtureId": "nested-portal",
+      "strategyId": "hybrid-dom-semantic-geometry",
+      "selectionMode": "adaptive-two-stage",
+      "completed": false,
+      "targetRecall": 0.6666666666666666,
+      "targetTop1": 0.3333333333333333,
+      "candidateCount": 5,
+      "actionableCount": 3,
+      "contextBytes": 6894,
+      "decisionCalls": 1,
+      "inputTokens": 1361,
+      "outputTokens": 92,
+      "cost": 0.000057162,
+      "elapsedMs": 1334,
+      "actionErrors": 0,
+      "recoveryActions": 0,
+      "unsupported": [
+        "accessibility-tree: no portable public Playwright page-level AX snapshot is used; DOM semantic fallback active"
+      ],
+      "failure": "JEV benchmark request failed with HTTP 529: {\"error\":{\"message\":\"HTTP 529: {\\\"detail\\\":{\\\"error_type\\\":\\\"system_overloaded\\\",\\\"message\\\":\\\"We are currently experiencing high traffic and cannot process your request. Please try again later.\\\"}}\",\"code\":529}}"
+    },
+    {
+      "fixtureId": "layer-recovery",
+      "strategyId": "hybrid-dom-semantic-geometry",
+      "selectionMode": "adaptive-two-stage",
+      "completed": true,
+      "targetRecall": 1,
+      "targetTop1": 1,
+      "candidateCount": 2,
+      "actionableCount": 1,
+      "contextBytes": 4147,
+      "decisionCalls": 2,
+      "inputTokens": 1950,
+      "outputTokens": 144,
+      "cost": 0.0000819,
+      "elapsedMs": 812,
+      "actionErrors": 0,
+      "recoveryActions": 1,
+      "unsupported": [
+        "accessibility-tree: no portable public Playwright page-level AX snapshot is used; DOM semantic fallback active"
+      ]
+    },
+    {
+      "fixtureId": "disabled-and-covered",
+      "strategyId": "hybrid-dom-semantic-geometry",
+      "selectionMode": "adaptive-two-stage",
+      "completed": false,
+      "targetRecall": 0,
+      "targetTop1": 0,
+      "candidateCount": 2,
+      "actionableCount": 0,
+      "contextBytes": 1814,
+      "decisionCalls": 1,
+      "inputTokens": 827,
+      "outputTokens": 35,
+      "cost": 0.000034734,
+      "elapsedMs": 376,
+      "actionErrors": 0,
+      "recoveryActions": 0,
+      "unsupported": [
+        "accessibility-tree: no portable public Playwright page-level AX snapshot is used; DOM semantic fallback active"
+      ],
+      "failure": "Expected CLICK, but JEV selected BLOCKED."
+    },
+    {
+      "fixtureId": "dynamic-rerender",
+      "strategyId": "hybrid-dom-semantic-geometry",
+      "selectionMode": "adaptive-two-stage",
+      "completed": true,
+      "targetRecall": 1,
+      "targetTop1": 1,
+      "candidateCount": 1,
+      "actionableCount": 1,
+      "contextBytes": 3810,
+      "decisionCalls": 2,
+      "inputTokens": 1770,
+      "outputTokens": 140,
+      "cost": 0.00007434,
+      "elapsedMs": 1111,
+      "actionErrors": 0,
+      "recoveryActions": 0,
+      "unsupported": [
+        "accessibility-tree: no portable public Playwright page-level AX snapshot is used; DOM semantic fallback active"
+      ]
+    },
+    {
+      "fixtureId": "frame-shadow",
+      "strategyId": "hybrid-dom-semantic-geometry",
+      "selectionMode": "adaptive-two-stage",
+      "completed": true,
+      "targetRecall": 1,
+      "targetTop1": 1,
+      "candidateCount": 2,
+      "actionableCount": 2,
+      "contextBytes": 3191,
+      "decisionCalls": 1,
+      "inputTokens": 1325,
+      "outputTokens": 108,
+      "cost": 0.00005565,
+      "elapsedMs": 542,
+      "actionErrors": 0,
+      "recoveryActions": 0,
+      "unsupported": [
+        "accessibility-tree: no portable public Playwright page-level AX snapshot is used; DOM semantic fallback active"
+      ]
+    },
+    {
+      "fixtureId": "nested-scroll",
+      "strategyId": "hybrid-dom-semantic-geometry",
+      "selectionMode": "adaptive-two-stage",
+      "completed": true,
+      "targetRecall": 1,
+      "targetTop1": 0.5,
+      "candidateCount": 2,
+      "actionableCount": 2,
+      "contextBytes": 17040,
+      "decisionCalls": 5,
+      "inputTokens": 7771,
+      "outputTokens": 396,
+      "cost": 0.00032638200000000006,
+      "elapsedMs": 1943,
+      "actionErrors": 0,
+      "recoveryActions": 4,
+      "unsupported": [
+        "accessibility-tree: no portable public Playwright page-level AX snapshot is used; DOM semantic fallback active"
+      ]
+    }
+  ]
+}

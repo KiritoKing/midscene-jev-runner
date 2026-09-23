@@ -32,6 +32,8 @@ const setup = defineProjectSetup<ProjectContext>({
   },
 });
 
+// This runnable example deliberately registers only the package's nodes. A
+// consumer that needs aiInput must register its own Midscene Agent nodes.
 const jevNodes = createJevNodes<ProjectContext>({
   getPage: ({ context }) => context.page,
   verifyCompletion: async ({ page }) =>
