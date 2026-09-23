@@ -41,6 +41,9 @@ See [scene testing](./docs/testing.md) for setup, assertions, CI behavior, the
 `SELECT` state/value contract, and the Red → Green workflow. Historical unit
 and experimental tests remain under `pnpm test:legacy`.
 
+For version, changelog, tag, and npm publishing boundaries, see
+[releasing](./docs/releasing.md).
+
 ## Configure JEV
 
 Set the runner-owned credential in the process environment, never in YAML:
