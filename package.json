@@ -23,6 +23,7 @@
   },
   "files": [
     "dist",
+    "docs/testing.md",
     "example",
     "README.md",
     "README.zh-CN.md",
@@ -37,7 +38,10 @@
     "prepack": "pnpm run build",
     "release:verify": "node scripts/verify-release.mjs",
     "smoke:package": "node scripts/smoke-package.mjs",
-    "test": "vitest run",
+    "test": "pnpm run test:integration",
+    "test:integration": "vitest run --config vitest.config.ts",
+    "test:e2e": "node scripts/test-e2e.mjs",
+    "test:legacy": "vitest run --config vitest.legacy.config.ts",
     "typecheck": "tsc --noEmit",
     "check": "pnpm run lint && pnpm run typecheck && pnpm run test && pnpm run build && pnpm run smoke:package"
   },
@@ -63,6 +67,7 @@
     "@biomejs/biome": "1.9.4",
     "@microsoft/api-extractor": "^7.52.0",
     "@midscene/test": "1.13.0",
+    "@midscene/web": "1.13.0",
     "@rslib/core": "^0.18.3",
     "@types/node": "^20.19.0",
     "playwright": "^1.45.0",

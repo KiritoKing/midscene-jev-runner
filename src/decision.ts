@@ -69,12 +69,17 @@ const candidateFact = (
   ...(action.currentValue !== undefined
     ? { current_value: action.currentValue.slice(0, MAX_FIELD_VALUE_LENGTH) }
     : {}),
+  ...(action.kind === 'select' && action.value !== undefined
+    ? { target_value: action.value.slice(0, MAX_FIELD_VALUE_LENGTH) }
+    : {}),
   ...(action.checked !== undefined ? { checked: action.checked } : {}),
   ...(action.selected !== undefined ? { selected: action.selected } : {}),
   ...(action.expanded !== undefined ? { expanded: action.expanded } : {}),
   ...(action.effect ? { effect: action.effect } : {}),
-  ...(action.taskAlignment ? { task_alignment: action.taskAlignment } : {}),
-  ...(action.matchedGoalTerms !== undefined
+  ...(action.kind !== 'select' && action.taskAlignment
+    ? { task_alignment: action.taskAlignment }
+    : {}),
+  ...(action.kind !== 'select' && action.matchedGoalTerms !== undefined
     ? { matched_goal_terms: action.matchedGoalTerms }
     : {}),
   ...(action.clickabilityEvidence
@@ -148,8 +153,19 @@ export const createDecisionRequest = (
     actions.some(
       (action) => action.id === factId || action.id.startsWith(`${factId}:`),
     );
+  const hasCurrentState = (fact: BrowserFact): boolean =>
+    fact.kind === 'select' ||
+    fact.kind === 'fill' ||
+    fact.checked !== undefined ||
+    fact.selected !== undefined ||
+    fact.expanded !== undefined ||
+    Boolean(fact.currentValue);
   const rankedFacts = [...snapshot.facts]
-    .filter((fact) => !offeredFactIds(fact.id, rankedActions))
+    .filter(
+      (fact) =>
+        fact.visible &&
+        (hasCurrentState(fact) || !offeredFactIds(fact.id, rankedActions)),
+    )
     .sort((left, right) => {
       const leftValidation = snapshot.validationIssues.some((issue) =>
         matchesValidation(left, issue),
@@ -239,6 +255,7 @@ export const createDecisionRequest = (
       facts: rankedFacts.slice(0, factLimit).map((fact) => ({
         label: fact.label.slice(0, MAX_LABEL_LENGTH),
         role: fact.role,
+        visible: true,
         ...(fact.currentValue !== undefined
           ? {
               current_value: fact.currentValue.slice(0, MAX_FIELD_VALUE_LENGTH),

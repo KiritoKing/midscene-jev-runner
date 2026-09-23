@@ -27,6 +27,13 @@ pnpm add @chlrc/midscene-jev-runner @midscene/test playwright
 
 要求 Node.js `^20.19.0 || ^22.12.0 || >=24.0.0`。
 
+## 测试本仓库
+
+`pnpm check` 执行 27 项离线 Chromium 场景集成验收、lint、类型检查、构建和包冒烟。
+`pnpm test:e2e` 使用真实 JEV 与 Midscene 模型运行四个本地场景，需显式注入进程凭据。
+配置、独立断言、`SELECT` 当前值与目标值契约、CI 门禁及 Red → Green 流程见[场景测试说明](./docs/testing.md)。
+原有单元和实验测试可通过 `pnpm test:legacy` 单独运行。
+
 ## 配置 JEV
 
 凭据只能通过进程环境变量传入，不要写进 YAML：

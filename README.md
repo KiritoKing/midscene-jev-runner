@@ -32,6 +32,15 @@ pnpm add @chlrc/midscene-jev-runner @midscene/test playwright
 
 Node.js `^20.19.0 || ^22.12.0 || >=24.0.0` is required.
 
+## Test this repository
+
+`pnpm check` runs 27 maintained offline Chromium scene cases plus lint, types,
+build, and package smoke checks. `pnpm test:e2e` runs four local scenes with
+real JEV and Midscene providers and requires explicit process credentials.
+See [scene testing](./docs/testing.md) for setup, assertions, CI behavior, the
+`SELECT` state/value contract, and the Red → Green workflow. Historical unit
+and experimental tests remain under `pnpm test:legacy`.
+
 ## Configure JEV
 
 Set the runner-owned credential in the process environment, never in YAML:

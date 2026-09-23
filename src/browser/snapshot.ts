@@ -231,33 +231,85 @@ export function browserSnapshot(
     const start = Math.max(0, index - Math.floor((length - anchor.length) / 2));
     return normalized.slice(start, start + length);
   };
+  const contextTextCache = new WeakMap<Element, string>();
+  const contextText = (e: Element): string => {
+    let value = contextTextCache.get(e);
+    if (value === undefined) {
+      value = contentText(e);
+      contextTextCache.set(e, value);
+    }
+    return value;
+  };
   const localContext = (e: Element): string | undefined => {
     const container = groupFor(e);
     if (!container) return undefined;
     const heading = container.querySelector(
       'h1,h2,h3,h4,h5,h6,[role="heading"]',
     );
-    return (
-      focusedText(heading?.textContent || container.textContent) || undefined
-    );
+    const headingText = heading ? contextText(heading) : '';
+    return focusedText(headingText || contextText(container)) || undefined;
   };
   let textTruncated = false;
-  const contentText = (root: Element): string => {
-    const clone = root.cloneNode(true) as Element;
-    for (const excluded of Array.from(
-      clone.querySelectorAll(
-        'script,style,template,noscript,[hidden],[aria-hidden="true"]',
-      ),
-    ))
-      excluded.remove();
+  const contentText = (root: Element, trackTruncation = false): string => {
     const pieces: string[] = [];
-    const walker = document.createTreeWalker(clone, NodeFilter.SHOW_TEXT);
-    while (walker.nextNode()) {
-      const value = (walker.currentNode.textContent || '').trim();
-      if (value) pieces.push(value);
-    }
-    const normalized = pieces.join(' ').replace(/\s+/gu, ' ').trim();
-    textTruncated ||= normalized.length > maxText;
+    let length = 0;
+    const append = (value: string) => {
+      const normalized = value.replace(/\s+/gu, ' ').trim();
+      if (!normalized) return;
+      const remaining = maxText + 1 - length - (pieces.length ? 1 : 0);
+      if (remaining <= 0) {
+        length = maxText + 1;
+        return;
+      }
+      pieces.push(normalized.slice(0, remaining));
+      length +=
+        Math.min(normalized.length, remaining) + (pieces.length > 1 ? 1 : 0);
+    };
+    const visitText = (node: Node, textVisible = true): void => {
+      if (length > maxText) return;
+      if (node.nodeType === Node.TEXT_NODE) {
+        if (textVisible) append(node.textContent || '');
+        return;
+      }
+      if (!(node instanceof Element || node instanceof ShadowRoot)) return;
+      if (node instanceof Element) {
+        if (
+          node.matches(
+            'script,style,template,noscript,[hidden],[aria-hidden="true"],[inert]',
+          )
+        )
+          return;
+        const style = getComputedStyle(node);
+        if (
+          style.display === 'none' ||
+          style.contentVisibility === 'hidden' ||
+          style.opacity === '0'
+        )
+          return;
+        const childTextVisible = style.visibility === 'visible';
+        if (node instanceof HTMLSlotElement) {
+          const assigned = node.assignedNodes({ flatten: true });
+          if (assigned.length) {
+            for (const child of assigned) visitText(child, childTextVisible);
+            return;
+          }
+        }
+        if (node.shadowRoot?.mode === 'open') {
+          for (const child of Array.from(node.shadowRoot.childNodes))
+            visitText(child, childTextVisible);
+          return;
+        }
+        // Visibility can be restored on a descendant, unlike display:none.
+        for (const child of Array.from(node.childNodes))
+          visitText(child, childTextVisible);
+        return;
+      }
+      for (const child of Array.from(node.childNodes))
+        visitText(child, textVisible);
+    };
+    visitText(root);
+    const normalized = pieces.join(' ');
+    textTruncated ||= trackTruncation && length > maxText;
     return normalized.slice(0, maxText);
   };
   const escapeCss = (value: string) =>
@@ -925,7 +977,7 @@ export function browserSnapshot(
         signature: `scroll|${node}|up`,
       });
   }
-  const text = contentText(activeLayer?.element || document.body);
+  const text = contentText(activeLayer?.element || document.body, true);
   const requiredPattern =
     /(?:\brequired\b|must\s+(?:be\s+)?(?:filled|provided|selected)|cannot\s+be\s+empty|必填|不能为空)/iu;
   const errorPattern =
