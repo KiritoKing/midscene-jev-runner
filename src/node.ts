@@ -6,14 +6,29 @@ import {
 } from '@midscene/test';
 import { evaluateJevAssertion } from './assertion';
 import { runJev } from './runner';
-import { jevActInputSchema, jevAssertInputSchema } from './schema';
-import type { JevAssertionResult, JevNodeOptions, JevRunResult } from './types';
+import {
+  jevActInputSchema,
+  jevAssertInputSchema,
+  jevWaitForInputSchema,
+} from './schema';
+import type {
+  JevAssertionResult,
+  JevNodeOptions,
+  JevRunResult,
+  JevWaitForResult,
+} from './types';
+import { waitForJevAssertion } from './wait-for';
 
 type JevNodeDefinition<TContext> =
   | NodeDefinitionWithSchema<typeof jevActInputSchema, JevRunResult, TContext>
   | NodeDefinitionWithSchema<
       typeof jevAssertInputSchema,
       JevAssertionResult,
+      TContext
+    >
+  | NodeDefinitionWithSchema<
+      typeof jevWaitForInputSchema,
+      JevWaitForResult,
       TContext
     >;
 
@@ -81,6 +96,42 @@ export const createJevNodes = <TContext>(
             output,
           );
         }
+        return output;
+      },
+    }),
+    defineNode<typeof jevWaitForInputSchema, JevWaitForResult, TContext>({
+      name: 'jevWaitFor',
+      description:
+        'Wait for an observable condition on the caller-owned Playwright Page using repeated read-only JEV assertions.',
+      stringInputKey: 'prompt',
+      inputSchema: jevWaitForInputSchema,
+      async execute(execution) {
+        const input =
+          typeof execution.input === 'string'
+            ? { prompt: execution.input }
+            : execution.input;
+        const page = await options.getPage(execution);
+        execution.signal.throwIfAborted();
+        const result = await waitForJevAssertion(page, {
+          prompt: input.prompt,
+          context: input.options?.context,
+          timeoutMs: input.options?.timeoutMs,
+          checkIntervalMs: input.options?.checkIntervalMs,
+          ...options.assertion,
+          signal: execution.signal,
+        });
+        const output = {
+          summary: `JEV wait ${result.pass ? 'satisfied' : 'timed out'} after ${result.attempts} check(s): ${input.prompt}`,
+          data: result,
+        };
+        if (!result.pass)
+          throw new NodeExecutionError(
+            'jevWaitFor',
+            new Error(
+              `Condition was not observed before timeout: ${input.prompt}`,
+            ),
+            output,
+          );
         return output;
       },
     }),

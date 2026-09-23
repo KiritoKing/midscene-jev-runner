@@ -1,6 +1,10 @@
 import type { NodeExecutionContext } from '@midscene/test';
 import type { Page } from 'playwright';
-import type { JevActNodeInput, JevAssertNodeInput } from './schema';
+import type {
+  JevActNodeInput,
+  JevAssertNodeInput,
+  JevWaitForNodeInput,
+} from './schema';
 
 export interface JevUsage {
   calls: number;
@@ -33,6 +37,14 @@ export interface JevAssertionResult {
   /** Two-sided certainty derived from the truth probability. */
   certainty: number;
   elapsedMs: number;
+  usage: JevUsage;
+}
+
+export interface JevWaitForResult {
+  pass: boolean;
+  attempts: number;
+  elapsedMs: number;
+  lastAssertion: JevAssertionResult;
   usage: JevUsage;
 }
 
@@ -110,7 +122,7 @@ export interface JevRunOptions {
 export interface JevNodeOptions<TContext> {
   getPage(
     execution: NodeExecutionContext<
-      JevActNodeInput | JevAssertNodeInput,
+      JevActNodeInput | JevAssertNodeInput | JevWaitForNodeInput,
       TContext
     >,
   ): Page | Promise<Page>;

@@ -10,8 +10,10 @@ The package provides:
   `Page`.
 - `evaluateJevAssertion(page, options)`, one read-only assertion against the
   current browser observation.
-- `createJevNodes(options)`, which registers strict-schema `jevAct` and
-  `jevAssert` nodes.
+- `waitForJevAssertion(page, options)`, repeated read-only checks until an
+  observable condition passes or the wait window expires.
+- `createJevNodes(options)`, which registers strict-schema `jevAct`,
+  `jevAssert`, and `jevWaitFor` nodes.
 
 `jevAct` is intended as a faster replacement for one atomic `aiAct` intent,
 not as an autonomous whole-test planner. It may take a short bounded sequence
@@ -67,7 +69,7 @@ is reported as an endpoint-configuration error.
 
 JEV does not own text input. Register Midscene's standard nodes in the
 *consumer project* and use `aiInput` to provide caller-chosen text before a
-bounded `jevAct` loop. `createJevNodes()` only adds `jevAct` and `jevAssert`;
+bounded `jevAct` loop. `createJevNodes()` adds `jevAct`, `jevAssert`, and `jevWaitFor`;
 `aiInput` is available only after the consumer registers an Agent class through
 the public `createMidsceneNodes()` factory.
 
@@ -140,6 +142,11 @@ cases:
       - jevAssert:
           prompt: The requested result and completion evidence are visible.
           message: The page did not show the expected completion evidence.
+
+      # For an asynchronous result, use jevWaitFor instead of the immediate assertion:
+      # - jevWaitFor:
+      #     prompt: The requested result is visible.
+      #     options: { timeoutMs: 30000, checkIntervalMs: 3000 }
 ```
 
 Generate the consumer project's Node Spec after changing registrations. It is
@@ -162,6 +169,15 @@ probability between the pass and fail thresholds returns `indeterminate`.
 Those probabilities are not a deterministic guarantee that JEV saw every hidden
 or external gap. Use deterministic application or API checks for facts outside
 the current page.
+
+`jevWaitFor` repeats the same read-only check, using `prompt` and optional
+`options.context`. `options.timeoutMs` defaults to 15000 and
+`options.checkIntervalMs` defaults to 3000. Checks start at least that interval
+apart; a check started within the timeout window may finish afterward. A pass
+returns the check count, last assertion, and aggregate model usage. A timeout
+fails the Step with the same diagnostic data. Provider and observation errors
+fail immediately, and cancellation stops the wait. Each check makes a model
+request, so use a fixed `wait` Node when no semantic condition is needed.
 
 ## Migrating from the text path
 

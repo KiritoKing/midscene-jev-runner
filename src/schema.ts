@@ -40,3 +40,19 @@ export const jevAssertInputSchema = z.strictObject({
 });
 
 export type JevAssertNodeInput = z.infer<typeof jevAssertInputSchema>;
+
+export const jevWaitForInputSchema = z.strictObject({
+  prompt: z
+    .string()
+    .max(MAX_GOAL_LENGTH)
+    .regex(/\S/u, 'prompt must contain a non-whitespace character'),
+  options: z
+    .strictObject({
+      timeoutMs: z.number().int().positive().default(15_000),
+      checkIntervalMs: z.number().int().positive().default(3_000),
+      context: z.string().max(MAX_ASSERTION_CONTEXT_LENGTH).optional(),
+    })
+    .optional(),
+});
+
+export type JevWaitForNodeInput = z.infer<typeof jevWaitForInputSchema>;

@@ -8,7 +8,9 @@ JEV 集成。本项目独立于 Midscene 仓库，不是 Midscene 官方包。
 - `runJev(page, options)`：在调用方持有的 Playwright `Page` 上运行有界
   ReAct 循环。
 - `evaluateJevAssertion(page, options)`：基于当前页面观察执行一次只读断言。
-- `createJevNodes(options)`：注册严格 schema 的 `jevAct` 与 `jevAssert` 节点。
+- `waitForJevAssertion(page, options)`：只读重试当前页面条件，直到成立或超时。
+- `createJevNodes(options)`：注册严格 schema 的 `jevAct`、`jevAssert` 与
+  `jevWaitFor` 节点。
 
 `jevAct` 应作为单个原子 `aiAct` 意图的更快替代，而不是自主完成整条测试用例的
 规划器。一个原子交互若会打开菜单或浮层，节点内部仍可执行一段很短的有界动作；完整
@@ -59,7 +61,7 @@ export MIDSCENE_JEV_MODEL_NAME=jev-latest
 
 JEV 不负责文本输入。应由*使用本包的项目*注册 Midscene 标准节点，并在有界
 `jevAct` 前通过 `aiInput` 提供调用方选定的文本。`createJevNodes()` 只注册
-`jevAct` 和 `jevAssert`；只有消费者通过公开 `createMidsceneNodes()` factory 注册
+`jevAct`、`jevAssert` 和 `jevWaitFor`；只有消费者通过公开 `createMidsceneNodes()` factory 注册
 Agent class 后，`aiInput` 才存在。
 
 下面是消费者项目的配置示例，需要它自己安装 `@midscene/web`。本包及可运行的
@@ -130,6 +132,11 @@ cases:
       - jevAssert:
           prompt: 所需结果和完成证据均可见。
           message: 页面没有展示预期的完成证据。
+
+      # 异步结果可改用 jevWaitFor：
+      # - jevWaitFor:
+      #     prompt: 所需结果已经可见。
+      #     options: { timeoutMs: 30000, checkIntervalMs: 3000 }
 ```
 
 变更节点注册后应生成消费者项目的 Node Spec。它才是该安装版本中原生 `aiInput`
@@ -147,6 +154,13 @@ cases:
 时返回 `indeterminate`。这些概率不是
 JEV 已看见所有隐藏或页面外缺口的确定性保证；页面外事实应继续使用确定性的应用或
 API 校验。
+
+`jevWaitFor` 重复同样的只读判断，接受 `prompt` 与可选的
+`options.context`。`options.timeoutMs` 默认 15000 毫秒，
+`options.checkIntervalMs` 默认 3000 毫秒；两次检查的开始时间至少间隔该值。
+在超时窗口内启动的检查允许在窗口后结束。通过时返回检查次数、最后一次断言和
+汇总模型用量；超时使 Step 失败，并保留诊断数据。Provider 或观察错误立即失败，
+取消信号会终止等待。每轮均请求模型；无需语义条件时请用固定时长的 `wait` 节点。
 
 ## 从旧文本路径迁移
 
