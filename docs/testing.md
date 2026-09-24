@@ -3,14 +3,14 @@
 The maintained test gate has two layers. `pnpm check` runs static checks, the
 offline Chromium scene integration suite, the build, and the package smoke test.
 `pnpm test:e2e` runs four local scenes through real JEV and Midscene model
-requests. The legacy unit and experimental tests remain available through
+requests when credentials are configured. The legacy unit and experimental tests remain available through
 `pnpm test:legacy`, but are outside the maintained gate.
 
 | Command | Model requests | What passing means |
 | --- | --- | --- |
 | `pnpm test:integration` (also `pnpm test`) | None | Real Chromium observations, candidate selection, action execution, stale-state guards, and independent readback work on controlled local pages. The decision transport is deterministic. |
 | `pnpm check` | None | Lint, types, scene integration, build, and package smoke pass. It does not establish model accuracy. |
-| `pnpm test:e2e` | Real JEV and Midscene requests | The four current local scene workflows pass with the configured providers and independent fixture-state assertions. This is a single configured run, not a reliability or speed estimate. |
+| `pnpm test:e2e` | Real JEV and Midscene requests | All configured local workflows passed in that run with independent state and visible page assertions. A passing run is not a reliability or speed estimate. |
 | `pnpm test:legacy` | Normally none; historical live benchmarks opt in separately | Existing unit and experimental suites can still be inspected during migration. Their result is not the default acceptance gate. |
 
 Install the locked dependencies and Chromium before either browser suite:
@@ -40,8 +40,7 @@ pnpm check
    Report the variant, counterexample, failed and passed assertions, and any
    browser or provider behavior still untested.
 
-The maintained offline suite currently contains 27 Chromium integration cases.
-They exercise hidden stale copies, weak semantic
+The maintained offline suite exercises hidden stale copies, weak semantic
 targets, portalled listboxes, iframe and shadow targets, rerendered row identity,
 background tabs, early `DONE`, lost action responses, and caller-owned `Page`
 navigation. They use real Chromium and local deterministic decision responses;
@@ -70,12 +69,13 @@ an empty placeholder as a goal match. Current field values remain visible in
 facts, and the clearing option remains available when enabled.
 
 The HTTP fixture integration additionally runs the production observation,
-request construction, and action execution path across four local workflows:
-campaign draft creation through three visible stages, encyclopedia document
-navigation, a flight search with calendar selection, and filtered hotel
-navigation. The campaign cases also check prerequisite `409` rejection, an
-exactly once clone committed before a `503` response, preserved source data,
-and independent run state. Text inputs in this offline suite are supplied by
+request construction, and action execution path across local workflows:
+a marketing clone through four validated forms, difference confirmation and
+warning configuration landing; encyclopedia document navigation; a flight
+search with calendar selection; and filtered hotel navigation. The marketing
+cases also check prerequisite `409` rejection, an exactly once clone committed
+before a `503` response, preserved source data, cached tab behavior, and
+independent run state. Text inputs in this offline suite are supplied by
 the caller; no test presents them as JEV `aiInput` behavior. Browser requests
 outside the fixture origin are aborted by the test context.
 
@@ -89,25 +89,45 @@ final exact assertions. A `DONE` decision or a successful Step alone cannot
 pass the case.
 
 The four local scenes are an encyclopedia search and article open, a
-three-stage campaign draft clone, a one-way Zurich → London flight search with
-an interactive calendar date selection, one adult and economy results, and a Lisbon hotel search with Design and
-Free cancellation filters ending at Casa Flora. The encyclopedia, flight, and
+six-stage marketing clone process ending at warning configuration, a one-way
+Zurich → London flight search with an interactive calendar date selection, and
+a Lisbon hotel search with Design and Free cancellation filters ending at Casa
+Flora. The encyclopedia, flight, and
 hotel task shapes are adapted from the public
 [jev-ultrafast examples](https://github.com/browser-use/jev-ultrafast) and
 [performance notes](https://github.com/browser-use/jev-ultrafast/blob/main/docs/performance.md).
 The campaign clone is a synthetic local workflow for layered navigation,
-dialog stages, preserved source data, and exactly-once creation. These fixtures
+cached tabs, table operations, validated form stages, preserved source data,
+and exactly-once creation. These fixtures
 use no live business site, private data, or booking flow. Flight dates and
 fixture content are local test data; this project does not reproduce the
 upstream timing measurements.
 
-The latest complete local real-model run on 2026-09-23 passed the encyclopedia,
-campaign clone, and hotel cases. The flight case failed before form submission:
-repeated `SELECT` decisions changed or cleared previously chosen fields, and
-the fixture recorded zero result events. A prior isolated flight pass does not
-count as a pass for the complete four-case run. This is one observed run, not a
-statistical success rate. The live CI job remains a failing gate until all four
-cases pass; the case and its independent state assertion remain enabled.
+An earlier 2026-09-23 real-model run used the previous, simpler fixture: its
+flight case failed before submission after repeated `SELECT` decisions changed
+or cleared prior fields. That result does not validate the rebuilt fixtures.
+Keep any failure and its independent zero-write/readback evidence visible; do
+not turn it into a skip or claim a passing suite from a previous fixture
+revision.
+
+The 2026-09-23 full live run against the rebuilt fixtures failed all four
+cases; it is retained under `tests/e2e/.artifacts/`. In encyclopedia, JEV
+dismissed a nonexistent overlay and then returned `BLOCKED` without a search
+event. In marketing, JEV opened the clone wizard, but Midscene `aiInput`
+entered invalid values into the native date controls; repeated Next clicks
+left the wizard at step 1 with zero copies. In hotel, JEV searched before
+selecting the two filters, then selected them on the results page and returned
+`DONE`; the independent server state still had both filters false, so
+completion verification rejected it. The flight case was interrupted by a
+test verifier selector that expected an input instead of the fixture's cabin
+select. After correcting that test selector, one targeted live flight rerun
+passed with four independently verified JEV nodes, exact ZRH–LHR one-way
+criteria, five results, one search event, and zero blocked browser requests.
+The targeted pass does not turn the four-case full run green. Evidence files:
+`encyclopedia-6022332c-851d-44f1-ba58-1a47507c021a.json`,
+`marketing-clone-b74d8acc-9fd6-47be-afc7-4ccb0b9ceca7.json`,
+`hotel-868d71a8-e9b6-46aa-a774-4cdd83ba5bab.json`, and targeted success
+`flights-6f7c9dcc-6210-496b-8d07-5a44bc0d9b70.json` in that directory.
 
 All business pages, assets, and state APIs are served from the local fixture
 origin. Playwright aborts page requests to every other origin; only the model
@@ -117,7 +137,8 @@ processes run locally; the JEV node receives the caller-owned `Page` and does
 not create, route, navigate, or close it. The calling test owns setup,
 navigation, browser request blocking, and cleanup.
 
-The flight case uses a calendar picker that JEV can operate. Native
+The flight case uses Midscene `aiInput` for city text, then JEV selects the
+observed airport suggestions and operates the calendar. Native
 `input[type=date]` entry through the two public Midscene `aiInput` strategies
 has not yet produced a correct value in this harness; retain it as an
 uncovered variant rather than recording an expected failure as a pass.
@@ -143,7 +164,9 @@ model. Both JEV and Midscene must be reachable for these cases.
 The command checks names before starting Vitest, sets `RUN_LIVE_MODEL_E2E=1`,
 and fails with `INFRA_BLOCKED` and the *names* of missing entries if any are
 absent. It never treats zero collected or skipped tests as a successful live
-run. Vitest runs one worker with no retries; each case has a four-minute cap.
+run. Vitest runs one worker with no retries; the marketing case has a bounded
+seven-minute cap and each other case has a bounded five-minute cap, consistent
+with their JEV node budgets and Midscene text-input steps.
 The CI live job has a 25-minute total cap. Each case writes sanitized JSON
 evidence under `tests/e2e/.artifacts/` and writes a screenshot on failure;
 preflight also writes a status JSON. The directory and Midscene's local

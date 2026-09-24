@@ -1,25 +1,20 @@
-import { randomUUID } from 'node:crypto';
 import { type Browser, type Page, chromium } from 'playwright';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { executeAction } from '../../src/browser/execute';
 import { observe } from '../../src/browser/observe';
 import { createDecisionRequest } from '../../src/decision';
-import { type FixtureServer, startFixtureServer } from '../fixtures/server';
 
 describe('current control state in decision requests', () => {
   let browser: Browser;
   let page: Page;
-  let fixture: FixtureServer;
 
   beforeAll(async () => {
-    fixture = await startFixtureServer();
     browser = await chromium.launch({ headless: true });
     page = await browser.newPage({ viewport: { width: 1000, height: 800 } });
   });
 
   afterAll(async () => {
     await browser?.close();
-    await fixture?.close();
   });
 
   const factsFor = async (goal: string) => {
@@ -37,7 +32,24 @@ describe('current control state in decision requests', () => {
     ) as Array<Record<string, unknown>>;
 
   it('keeps selected native fields as facts while preserving their alternative options', async () => {
-    await page.goto(fixture.url('flights', randomUUID()));
+    await page.setContent(`
+      <main>
+        <label>From
+          <select name="origin" aria-label="From">
+            <option value="">Choose origin</option>
+            <option value="Zurich">Zurich</option>
+            <option value="Paris">Paris</option>
+          </select>
+        </label>
+        <label>To
+          <select name="destination" aria-label="To">
+            <option value="">Choose destination</option>
+            <option value="London">London</option>
+            <option value="Berlin">Berlin</option>
+          </select>
+        </label>
+        <button type="button">Round trip</button>
+      </main>`);
     await page.locator('select[name="origin"]').selectOption('Zurich');
     await page.locator('select[name="destination"]').selectOption('London');
 

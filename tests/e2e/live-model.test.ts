@@ -31,7 +31,7 @@ interface ScenarioSpec {
   scenario: FixtureScenario;
   steps(runId: string): Array<Record<string, unknown>>;
   verify(goal: string, state: FixtureState, page: Page): Promise<boolean>;
-  assert(state: FixtureState): void;
+  assert(state: FixtureState, initialState: FixtureState): void;
 }
 
 const specs: ScenarioSpec[] = [
@@ -40,38 +40,50 @@ const specs: ScenarioSpec[] = [
     steps: () => [
       {
         aiInput: {
-          prompt: 'Search articles input',
-          value: 'Gödel incompleteness theorems',
+          prompt: 'Visible Search Wikipedia text input',
+          value: 'incompleteness theorems logic',
         },
       },
       {
         jevAct: {
-          goal: 'Submit the encyclopedia search for Gödel incompleteness theorems and reach its search results',
+          goal: 'Submit the Wikipedia search for incompleteness theorems logic and reach its search results',
           maxSteps: 8,
           maxTaskMs: 60_000,
         },
       },
       {
         jevAct: {
-          goal: 'Open the Gödel incompleteness theorems article from the search results',
+          goal: "Open Gödel's incompleteness theorems article from the search results",
           maxSteps: 8,
           maxTaskMs: 60_000,
         },
       },
     ],
-    async verify(goal, state) {
-      if (goal.startsWith('Submit the encyclopedia search'))
-        return state.result.query === 'Gödel incompleteness theorems';
+    async verify(goal, state, page) {
+      if (goal.startsWith('Submit the Wikipedia search'))
+        return (
+          state.result.query === 'incompleteness theorems logic' &&
+          page.url().includes('/scenario/encyclopedia/results') &&
+          (await page
+            .getByRole('heading', { name: 'Search results' })
+            .isVisible())
+        );
       return (
         state.result.navigated === true &&
-        state.result.articleId === 'godel-incompleteness'
+        state.result.articleId === 'godel-incompleteness' &&
+        page
+          .url()
+          .includes('/scenario/encyclopedia/article/godel-incompleteness') &&
+        (await page
+          .getByRole('heading', { name: "Gödel's incompleteness theorems" })
+          .isVisible())
       );
     },
     assert(state) {
       expect(state.result).toMatchObject({
-        query: 'Gödel incompleteness theorems',
+        query: 'incompleteness theorems logic',
         articleId: 'godel-incompleteness',
-        articleTitle: 'Gödel incompleteness theorems',
+        articleTitle: "Gödel's incompleteness theorems",
         navigated: true,
       });
       expect(state.events.map((event) => event.type)).toEqual([
@@ -85,64 +97,85 @@ const specs: ScenarioSpec[] = [
     steps: (runId) => [
       {
         jevAct: {
-          goal: 'In the campaign workspace, open the Blue Meridian source campaign and its duplicate campaign dialog',
-          maxSteps: 16,
-          maxTaskMs: 100_000,
+          goal: 'From the visible touchpoint activity table, open the Blue Meridian row More menu and choose Clone to reach step 1 Basic information',
+          maxSteps: 12,
+          maxTaskMs: 90_000,
         },
       },
       {
         aiInput: {
-          prompt:
-            'The visible New campaign name input in the Duplicate campaign Basic information section',
+          prompt: 'Visible 玩法名称 input in step 1 基础信息',
           value: `Blue Meridian E2E ${runId.slice(0, 8)}`,
-          options: { deepLocate: true },
+        },
+      },
+      {
+        aiInput: {
+          prompt: 'Visible 开始日期 date input in step 1',
+          value: '2026-10-01',
+        },
+      },
+      {
+        aiInput: {
+          prompt: 'Visible 结束日期 date input in step 1',
+          value: '2026-12-30',
         },
       },
       {
         jevAct: {
-          goal: `Complete the duplicate campaign wizard: continue through configuration, keep Use source settings selected, review the copy, and create exactly one draft named Blue Meridian E2E ${runId.slice(0, 8)} from Blue Meridian`,
+          goal: 'Advance from Basic information through People scope, Frequency control, and Entitlements, validating each step until the Difference preview is visible',
+          maxSteps: 18,
+          maxTaskMs: 120_000,
+        },
+      },
+      {
+        jevAct: {
+          goal: `Review and confirm the difference preview, then submit exactly one copy named Blue Meridian E2E ${runId.slice(0, 8)} and reach Warning configuration`,
           maxSteps: 12,
-          maxTaskMs: 80_000,
+          maxTaskMs: 100_000,
         },
       },
     ],
     async verify(goal, state, page) {
-      if (goal.startsWith('In the campaign workspace'))
+      if (goal.startsWith('From the visible touchpoint'))
         return (
-          state.events.some((event) => event.type === 'cloneDialogOpened') &&
-          page.getByLabel('New campaign name').isVisible()
+          state.events.some((event) => event.type === 'wizard-opened') &&
+          page.locator('.wizard-step[data-step="1"]').isVisible()
+        );
+      if (goal.startsWith('Advance from Basic information'))
+        return (
+          (state.result.wizard as Record<string, unknown>).stage ===
+            'preview' && page.locator('.wizard-step[data-step="5"]').isVisible()
         );
       return (
         state.result.latestCopy !== null &&
         (state.result.latestCopy as Record<string, unknown>).name ===
-          `Blue Meridian E2E ${state.runId.slice(0, 8)}`
+          `Blue Meridian E2E ${state.runId.slice(0, 8)}` &&
+        page.locator('.wizard-step[data-step="6"]').isVisible()
       );
     },
-    assert(state) {
-      const copy = {
-        id: `campaign-copy-${state.runId}-001`,
+    assert(state, initialState) {
+      expect(state.result.source).toEqual(initialState.result.source);
+      expect(state.result.copies).toHaveLength(1);
+      expect(state.result.latestCopy).toMatchObject({
+        id: `COPY-${state.runId}-0001`,
         name: `Blue Meridian E2E ${state.runId.slice(0, 8)}`,
         sourceId: 'campaign-source-01',
-        status: 'draft',
-        budget: 12500,
-        channel: 'Web',
-        objective: 'Awareness',
-      };
-      expect(state.result.source).toEqual({
-        id: 'campaign-source-01',
-        name: 'Blue Meridian',
-        status: 'active',
-        budget: 12500,
-        channel: 'Web',
-        objective: 'Awareness',
+        status: '未生效',
+        startDate: '2026-10-01',
+        validUntil: '2026-12-30',
+        rule: 'rule-growth',
+        audience: 'all',
+        benefit: 'benefit-voucher',
+        frequency: 2,
+        period: 'day',
+        quantity: 1,
+        grantMode: '实时发放',
       });
-      expect(state.result.copies).toEqual([copy]);
-      expect(state.result.latestCopy).toEqual(copy);
       expect(state.result.wizard).toMatchObject({
-        stage: 'completed',
+        stage: 'warning',
         sourceId: 'campaign-source-01',
-        name: copy.name,
-        useSourceSettings: true,
+        completed: [1, 2, 3, 4],
+        confirmed: true,
       });
       expect(state.attempts).toHaveLength(1);
       expect(state.attempts[0]).toMatchObject({
@@ -150,17 +183,16 @@ const specs: ScenarioSpec[] = [
         outcome: 'committed',
       });
       expect(state.events.map((event) => event.type)).toEqual([
-        'campaignsOpened',
-        'catalogLoaded',
-        'sourceSelected',
-        'sourceDetailLoaded',
-        'cloneDialogOpened',
-        'baseCompleted',
-        'configurationCompleted',
-        'cloneCreated',
+        'wizard-opened',
+        'wizard-step-completed',
+        'wizard-step-completed',
+        'wizard-step-completed',
+        'wizard-step-completed',
+        'preview-confirmed',
+        'clone-created',
       ]);
       expect(
-        state.events.filter((event) => event.type === 'cloneCreated'),
+        state.events.filter((event) => event.type === 'clone-created'),
       ).toHaveLength(1);
     },
   },
@@ -168,10 +200,29 @@ const specs: ScenarioSpec[] = [
     scenario: 'flights',
     steps: () => [
       {
+        aiInput: {
+          prompt: 'Visible From flight city combobox',
+          value: 'Zur',
+        },
+      },
+      {
         jevAct: {
-          goal: 'On the flight search form select Zurich as origin, London as destination, and One-way as trip type; keep 1 adult and Economy',
-          maxSteps: 12,
-          maxTaskMs: 80_000,
+          goal: 'Choose the visible Zurich Airport ZRH suggestion for the From field',
+          maxSteps: 6,
+          maxTaskMs: 55_000,
+        },
+      },
+      {
+        aiInput: {
+          prompt: 'Visible To flight city combobox',
+          value: 'Lon',
+        },
+      },
+      {
+        jevAct: {
+          goal: 'Choose the visible Heathrow Airport LHR suggestion for the To field, then select One-way as trip type; keep 1 adult and Economy',
+          maxSteps: 10,
+          maxTaskMs: 75_000,
         },
       },
       {
@@ -190,13 +241,25 @@ const specs: ScenarioSpec[] = [
       },
     ],
     async verify(goal, state, page) {
-      if (goal.startsWith('On the flight search form'))
+      if (goal.startsWith('Choose the visible Zurich'))
         return (
-          (await page.getByLabel('From').inputValue()) === 'Zurich' &&
-          (await page.getByLabel('To').inputValue()) === 'London' &&
+          (await page.getByLabel('From', { exact: true }).inputValue()) ===
+            'Zurich' &&
+          (await page
+            .getByLabel('From', { exact: true })
+            .getAttribute('data-airport-code')) === 'ZRH'
+        );
+      if (goal.startsWith('Choose the visible Heathrow'))
+        return (
+          (await page.getByLabel('To', { exact: true }).inputValue()) ===
+            'London' &&
+          (await page
+            .getByLabel('To', { exact: true })
+            .getAttribute('data-airport-code')) === 'LHR' &&
           (await page.locator('#trip-type').inputValue()) === 'one-way' &&
-          (await page.getByLabel('Adults').inputValue()) === '1' &&
-          (await page.getByLabel('Cabin').inputValue()) === 'economy'
+          (await page.locator('input[name="adults"]').inputValue()) === '1' &&
+          (await page.locator('select[name="cabin"]').inputValue()) ===
+            'economy'
         );
       if (goal.startsWith('Choose 12 November 2026'))
         return (
@@ -205,13 +268,20 @@ const specs: ScenarioSpec[] = [
         );
       return (
         state.result.resultsVisible === true &&
-        state.result.departureDate === departureDate
+        state.result.departureDate === departureDate &&
+        state.result.destinationAirport === 'LHR' &&
+        page.url().includes('/scenario/flights/results') &&
+        (await page
+          .getByRole('heading', { name: 'Available flights' })
+          .isVisible())
       );
     },
     assert(state) {
-      expect(state.result).toEqual({
+      expect(state.result).toMatchObject({
         origin: 'Zurich',
         destination: 'London',
+        originAirport: 'ZRH',
+        destinationAirport: 'LHR',
         tripType: 'one-way',
         departureDate,
         adults: 1,
@@ -226,12 +296,17 @@ const specs: ScenarioSpec[] = [
   {
     scenario: 'hotel',
     steps: () => [
-      { aiInput: { prompt: 'Destination input', value: 'Lisbon' } },
+      {
+        aiInput: {
+          prompt: 'Visible Destination hotel city combobox',
+          value: 'Lis',
+        },
+      },
       {
         jevAct: {
-          goal: 'Select Design and Free cancellation filters, then search for Lisbon stays',
-          maxSteps: 12,
-          maxTaskMs: 80_000,
+          goal: 'Choose the visible Lisbon destination suggestion, select Design and Free cancellation filters, then search for Lisbon stays',
+          maxSteps: 14,
+          maxTaskMs: 100_000,
         },
       },
       {
@@ -242,18 +317,26 @@ const specs: ScenarioSpec[] = [
         },
       },
     ],
-    async verify(goal, state) {
-      if (goal.startsWith('Select Design'))
+    async verify(goal, state, page) {
+      if (goal.startsWith('Choose the visible Lisbon'))
         return (
           state.result.city === 'Lisbon' &&
           state.result.design === true &&
           state.result.freeCancellation === true &&
-          state.result.resultsVisible === true
+          state.result.resultsVisible === true &&
+          page.url().includes('/scenario/hotel/results') &&
+          (await page.locator('.hotel-card').count()) === 2
         );
-      return state.result.openedHotelId === 'casa-flora';
+      return (
+        state.result.openedHotelId === 'casa-flora' &&
+        page.url().includes('/scenario/hotel/casa-flora') &&
+        (await page
+          .getByRole('heading', { name: 'Casa Flora', level: 1 })
+          .isVisible())
+      );
     },
     assert(state) {
-      expect(state.result).toEqual({
+      expect(state.result).toMatchObject({
         city: 'Lisbon',
         design: true,
         freeCancellation: true,
@@ -347,6 +430,7 @@ describe('real-model public Midscene Test composition', () => {
         let error: unknown;
         try {
           await page.goto(fixture.url(spec.scenario, runId));
+          const initialState = await fixture.readState(runId);
           const activeAgent = new PlaywrightAgent(page);
           agent = activeAgent;
           const nodes = [
@@ -410,7 +494,7 @@ describe('real-model public Midscene Test composition', () => {
               (step.output?.data as JevRunResult | undefined)?.usage.calls,
             ).toBeGreaterThan(0);
           }
-          spec.assert(await fixture.readState(runId));
+          spec.assert(await fixture.readState(runId), initialState);
           expect(
             blockedRequestCount,
             'Browser attempted a non-fixture request',
@@ -461,7 +545,7 @@ describe('real-model public Midscene Test composition', () => {
           }
         }
       },
-      4 * 60_000,
+      spec.scenario === 'marketing-clone' ? 7 * 60_000 : 5 * 60_000,
     );
   }
 });
