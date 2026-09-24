@@ -22,6 +22,9 @@ pnpm add @chlrc/midscene-jev-runner @midscene/test playwright
 
 Node.js `^20.19.0 || ^22.12.0 || >=24.0.0` is required.
 
+For version, changelog, tag, and npm publishing boundaries, see
+[releasing](./docs/releasing.md).
+
 ## Configure
 
 Set credentials in the process environment, never in YAML:

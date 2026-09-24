@@ -13,6 +13,8 @@ jobs:
     steps:
       - name: Check out repository
         uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          fetch-depth: 0
       - name: Install pnpm
         uses: pnpm/action-setup@f40ffcd9367d9f12939873eb1018b921a783ffaa # v4
         with:
@@ -24,6 +26,25 @@ jobs:
           cache: pnpm
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
+      - name: Lint commit messages
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          PR_TITLE: ${{ github.event.pull_request.title }}
+          PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          PUSH_BEFORE: ${{ github.event.before }}
+        run: |
+          if [[ "$EVENT_NAME" == "pull_request" ]]; then
+            printf '%s\n' "$PR_TITLE" | pnpm exec commitlint
+            pnpm exec commitlint --from "$PR_BASE_SHA" --to "$PR_HEAD_SHA"
+          elif [[ "$EVENT_NAME" == "push" ]]; then
+            if [[ -n "$PUSH_BEFORE" && "$PUSH_BEFORE" != "0000000000000000000000000000000000000000" ]] \
+              && git cat-file -e "$PUSH_BEFORE^{commit}" 2>/dev/null; then
+              pnpm exec commitlint --from "$PUSH_BEFORE" --to "$GITHUB_SHA"
+            else
+              pnpm exec commitlint --last
+            fi
+          fi
       - name: Install Chromium
         run: pnpm exec playwright install --with-deps chromium
       - name: Run checks
