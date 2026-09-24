@@ -20,6 +20,8 @@ pnpm add @chlrc/midscene-jev-runner @midscene/test playwright
 
 要求 Node.js `^20.19.0 || ^22.12.0 || >=24.0.0`。
 
+版本、changelog、tag 与 npm 发布的边界见[发布流程](./docs/releasing.md)。
+
 ## 配置
 
 凭据只能通过进程环境变量传入，不要写入 YAML：

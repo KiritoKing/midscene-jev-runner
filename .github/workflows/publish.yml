@@ -13,12 +13,19 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
+    outputs:
+      dist_tag: ${{ steps.verify_release.outputs.dist_tag }}
     steps:
       - name: Check out release tag
         uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
           ref: ${{ github.event.release.tag_name }}
+          fetch-depth: 0
           persist-credentials: false
+      - name: Verify release commit
+        env:
+          RELEASE_SHA: ${{ github.sha }}
+        run: test "$(git rev-parse HEAD)" = "$RELEASE_SHA"
       - name: Install pnpm
         uses: pnpm/action-setup@f40ffcd9367d9f12939873eb1018b921a783ffaa # v4
         with:
@@ -33,9 +40,19 @@ jobs:
       - name: Install Chromium
         run: pnpm exec playwright install --with-deps chromium
       - name: Verify release version
+        id: verify_release
         run: pnpm release:verify
         env:
           RELEASE_TAG: ${{ github.event.release.tag_name }}
+          RELEASE_PRERELEASE: ${{ github.event.release.prerelease }}
+      - name: Verify release branch
+        env:
+          TARGET_BRANCH: ${{ steps.verify_release.outputs.target_branch }}
+        run: |
+          git fetch --no-tags origin \
+            refs/heads/main:refs/remotes/origin/main \
+            refs/heads/next:refs/remotes/origin/next
+          git merge-base --is-ancestor HEAD "refs/remotes/origin/$TARGET_BRANCH"
       - name: Run checks
         run: pnpm check
       - name: Pack verified package
@@ -70,4 +87,4 @@ jobs:
           name: npm-package
           path: release-artifact
       - name: Publish public package with provenance
-        run: npm publish ./release-artifact/*.tgz --access public --provenance
+        run: npm publish ./release-artifact/*.tgz --access public --provenance --tag "${{ needs.verify.outputs.dist_tag }}"
