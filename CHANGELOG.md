@@ -1,5 +1,30 @@
 # Changelog
 
+## [0.2.0] - 2026-10-12
+
+### Stable promotion and compatibility
+
+- Promote the beta series to stable, integrating the previously separate solution and realistic-fixture PRs, plus the latest `main`/`next` release policy history.
+- Relative to 0.1.2, add public assertion/wait APIs and nodes, scoped semantic/geometry observation and public Midscene Agent composition alongside the existing runner integration.
+- **Pre-1.0 breaking changes:** remove `TYPE_TEXT`/`CLEAR`, `JevTextUsage` and `JevRunResult.textUsage`; use caller-registered native Midscene `aiInput` instead. `JevNodeOptions.getPage` now accepts execution contexts for act/assert/wait nodes. Consumers should review the updated README composition and result types before upgrading.
+- Keep `@midscene/test` and `playwright` as peer dependencies. The caller owns its Page and native text input; JEV does not fill/clear fields or own navigation, authentication, routes or cleanup.
+
+### Fixed
+
+- Keep weak nearby labels inside the current semantic group; preserve explicit cross-group ARIA naming.
+- Keep nonmodal editable-combobox suggestions from hiding uncovered actions; retain modal and hit-test constraints.
+- Guard Escape against clearing focused caller-owned search text, including open shadow roots and frames.
+- Give operation selection the same bounded candidate facts as target selection without keyword-based action filters.
+- Retry only recognized transient observations once and permit independent completion reconciliation of uncertain actions without replaying them.
+- Preserve assertion fact identity, group and layer evidence, including hidden counterevidence.
+
+### Validation and release
+
+- Add structurally varied regression cases, realistic local server/Chromium fixtures, independent state/side-effect checks, and sanitized decision-wire diagnostics.
+- Require an atomic custom model key/base/model triple in the live harness. Retain JEV as the default after a text-only comparison; no alternative-model production adapter is introduced.
+- Compose segmented native date input through public caller-side Midscene keyboard/input nodes in the explicit en-US fixture; other locales/widgets remain unverified.
+- A reviewed stable version bump merged into `main` now authorizes automatic release. Actions verifies the exact commit, version/channel, checks, legacy tests, package and mandatory real-model scenes before creating the GitHub Release and publishing the verified tarball with npm provenance. Read-back verifies registry integrity and dist-tag; uncertain publication is never blindly replayed. Beta releases retain human Publish Release approval.
+
 ## [0.2.0-beta.5] - 2026-09-23
 
 ### Changed

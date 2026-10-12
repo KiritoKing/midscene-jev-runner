@@ -1,4 +1,44 @@
-# Local merge-readiness checkpoint — 2026-10-12
+# Release-readiness evidence — 2026-10-12
+
+## Stable consolidation follow-up
+
+The sections below retain the original local beta.5 checkpoint. The later
+owner-authorized consolidation integrates `origin/main` (`f07d22f`) and
+`origin/next` (`26839d8`), preserving both previous PR heads in history, and
+prepares stable `0.2.0`. Repository model Secrets/Variables were configured
+with explicit permission; credential values were not committed or printed.
+
+The owner approved replacing the second manual stable publication step with
+publication after a reviewed version PR is merged into `main`, **only if**
+all exact-commit/package/offline/legacy/live gates pass. No main merge or npm
+publication has been performed. See [release policy](releasing.md).
+
+A new full integrated `0.2.0` live run at approximately 20:07–20:08 Asia/Shanghai
+passed encyclopedia, marketing and flights but **failed hotel (3/4 overall)**.
+The model searched before applying filters, then checked them only on the
+results page and repeatedly returned `DONE`; the server ledger still recorded
+both search filters as false. Independent completion validation rejected all
+five `DONE` decisions and the recovery budget stopped the node. No hotel detail
+was opened. This is a remaining real-model reliability failure, not a passing
+release gate or a fixture assertion to weaken. Evidence remains local:
+[hotel failure](../tests/e2e/.artifacts/hotel-fee13dd4-80ed-4b2f-9974-d178e4a73d3d.json).
+The earlier two green runs remain historical evidence, not a guarantee that a
+post-merge release gate will pass. Remote CI must be reviewed before merging;
+failed publication gates leave the package unpublished.
+
+Final consolidation offline validation passed: `pnpm check` **83/83** (including
+15 release-automation safety tests), `pnpm test:legacy` **85 passed / two
+historical opt-in skips**, `release:verify` for `v0.2.0`, commit-message checks
+and `git diff --check`. The live result above remains failing independently of
+these offline passes.
+
+Read-only repository ruleset verification found an active `main`/`next` policy:
+PR required, strict `check` required, linear history (squash/rebase), no bypass
+actors and no deletion/non-fast-forward updates. The live check is not currently
+a required pre-merge ruleset context; review it manually before merging. The new
+post-merge publication workflow nevertheless requires the full live gate.
+
+## Original local checkpoint
 
 Branch: `fix/0.2-release-readiness`, based on beta.5 commit `f1bd066`.
 Version remains `0.2.0-beta.5`. This checkpoint is local validation, not a

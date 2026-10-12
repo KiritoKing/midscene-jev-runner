@@ -27,12 +27,20 @@ pnpm add @chlrc/midscene-jev-runner @midscene/test playwright
 
 要求 Node.js `^20.19.0 || ^22.12.0 || >=24.0.0`。
 
+### 从 0.1.x 升级
+
+0.2.0 是包含破坏性 API 变化的 pre-1.0 次版本：移除 `TYPE_TEXT`/`CLEAR`、
+`JevTextUsage` 与 `JevRunResult.textUsage`。文本输入改由消费者注册的原生 Midscene
+`aiInput` 单独编排，示例见下文。`getPage` 回调需接受 act/assert/wait 的执行上下文，
+不能假定所有调用均为 `jevAct`。断言与等待 API 是新增能力；请检查[变更记录](./CHANGELOG.md)，
+并更新依赖旧结果或操作类型的代码。
+
 ## 测试本仓库
 
 `pnpm check` 执行离线 Chromium 场景集成验收、lint、类型检查、构建和包冒烟。
 `pnpm test:e2e` 使用真实 JEV 与 Midscene 模型运行四个本地场景，需显式注入进程凭据。
 配置、独立断言、`SELECT` 当前值与目标值契约、CI 门禁及 Red → Green 流程见[场景测试说明](./docs/testing.md)。
-版本、changelog、tag 与 npm 发布的边界见[发布流程](./docs/releasing.md)。
+版本、changelog、tag 与 npm 发布的边界见[发布流程](./docs/releasing.md)。审核后合入 `main` 的稳定版版本 PR 即授权自动发布，但必须先通过包括真实模型场景在内的完整发布门禁；beta 仍需人工 Publish Release。
 原有单元和实验测试可通过 `pnpm test:legacy` 单独运行。
 
 ## 配置 JEV

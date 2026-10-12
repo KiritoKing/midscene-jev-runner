@@ -32,17 +32,28 @@ pnpm add @chlrc/midscene-jev-runner @midscene/test playwright
 
 Node.js `^20.19.0 || ^22.12.0 || >=24.0.0` is required.
 
+### Upgrading from 0.1.x
+
+0.2.0 is a pre-1.0 minor release with breaking API changes: `TYPE_TEXT`/`CLEAR`,
+`JevTextUsage` and `JevRunResult.textUsage` are removed. Register native Midscene
+`aiInput` in the consumer and compose text input separately as shown below.
+`getPage` callbacks must accept act/assert/wait execution contexts rather than
+assuming every invocation is `jevAct`. The assertion and wait APIs are new;
+review [the changelog](./CHANGELOG.md) and update any result/operation typings.
+
 ## Test this repository
 
-`pnpm check` runs 27 maintained offline Chromium scene cases plus lint, types,
-build, and package smoke checks. `pnpm test:e2e` runs four local scenes with
+`pnpm check` runs maintained offline Chromium scenes and safety regressions plus
+lint, types, build, and package smoke checks. `pnpm test:e2e` runs four local scenes with
 real JEV and Midscene providers and requires explicit process credentials.
 See [scene testing](./docs/testing.md) for setup, assertions, CI behavior, the
 `SELECT` state/value contract, and the Red → Green workflow. Historical unit
 and experimental tests remain under `pnpm test:legacy`.
 
 For version, changelog, tag, and npm publishing boundaries, see
-[releasing](./docs/releasing.md).
+[releasing](./docs/releasing.md). Merging a reviewed stable version PR into `main`
+authorizes automatic publication only after all release gates, including the
+real-model scenes, pass. Beta releases retain human Publish Release approval.
 
 ## Configure JEV
 

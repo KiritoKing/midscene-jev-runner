@@ -153,8 +153,12 @@ configuration, date values, and exactly-once clone assertions were retained.
 The caller goal now explicitly requests preserving inherited settings,
 matching the pre-existing assertion contract. These two successful runs do not
 establish a measured reliability rate. Earlier failures above remain evidence;
-the [local release-readiness report](release-readiness-2026-10-12.md) records
-mechanisms, regression variants, and current boundaries.
+the [local release-readiness report](https://github.com/KiritoKing/midscene-jev-runner/blob/main/docs/release-readiness-2026-10-12.md) records
+mechanisms, regression variants, and current boundaries. A later full stable
+consolidation run at 20:07–20:08 passed only 3/4: hotel searched before applying
+filters and repeated `DONE` despite independent negative verification. This
+remaining model reliability failure is retained in that report; it was not
+converted to a skip or a successful release gate.
 
 The suite does not establish success on arbitrary sites, live booking, broad
 language coverage, canvas controls, untested authentication, or statistical
@@ -181,7 +185,7 @@ never commit them or write their values to a test report. The separate
 be reachable. Explicit configuration does not prove protocol compatibility:
 the current runner wire has structured target criteria and instructions.
 `pnpm test:models` screens text-only models separately; see the
-[benchmark methodology and results](../experiments/model-benchmark/README.md).
+[benchmark methodology and results](https://github.com/KiritoKing/midscene-jev-runner/blob/main/experiments/model-benchmark/README.md).
 
 The command checks names before starting Vitest, sets `RUN_LIVE_MODEL_E2E=1`,
 and fails with `INFRA_BLOCKED` and the *names* of missing entries if any are
