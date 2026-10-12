@@ -1,51 +1,72 @@
 name: Publish to npm
 
 on:
+  push:
+    branches: [main]
+    paths: [package.json]
   release:
     types: [published]
 
+# Serialize automatic and manual publication, including recovery attempts.
 concurrency:
-  group: npm-publish-${{ github.event.release.tag_name }}
+  group: npm-publish
   cancel-in-progress: false
+
+permissions:
+  contents: read
 
 jobs:
   verify:
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
+    timeout-minutes: 25
     outputs:
+      should_publish: ${{ steps.plan.outputs.should_publish }}
       dist_tag: ${{ steps.verify_release.outputs.dist_tag }}
+      release_tag: ${{ steps.plan.outputs.release_tag }}
     steps:
-      - name: Check out release tag
+      - name: Check out exact event commit
         uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
-          ref: ${{ github.event.release.tag_name }}
+          ref: ${{ github.sha }}
           fetch-depth: 0
           persist-credentials: false
-      - name: Verify release commit
+      - name: Verify event commit
         env:
           RELEASE_SHA: ${{ github.sha }}
         run: test "$(git rev-parse HEAD)" = "$RELEASE_SHA"
-      - name: Install pnpm
-        uses: pnpm/action-setup@f40ffcd9367d9f12939873eb1018b921a783ffaa # v4
-        with:
-          version: 9.3.0
       - name: Set up Node.js
         uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
         with:
           node-version: 24
           package-manager-cache: false
+      - name: Plan reviewed version release
+        id: plan
+        run: node scripts/release-plan.mjs
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          PUSH_BEFORE: ${{ github.event.before }}
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
+          RELEASE_PRERELEASE: ${{ github.event.release.prerelease }}
+      - name: Install pnpm
+        if: steps.plan.outputs.should_publish == 'true'
+        uses: pnpm/action-setup@f40ffcd9367d9f12939873eb1018b921a783ffaa # v4
+        with:
+          version: 9.3.0
       - name: Install dependencies
+        if: steps.plan.outputs.should_publish == 'true'
         run: pnpm install --frozen-lockfile
       - name: Install Chromium
+        if: steps.plan.outputs.should_publish == 'true'
         run: pnpm exec playwright install --with-deps chromium
       - name: Verify release version
+        if: steps.plan.outputs.should_publish == 'true'
         id: verify_release
         run: pnpm release:verify
         env:
-          RELEASE_TAG: ${{ github.event.release.tag_name }}
-          RELEASE_PRERELEASE: ${{ github.event.release.prerelease }}
+          RELEASE_TAG: ${{ steps.plan.outputs.release_tag }}
+          RELEASE_PRERELEASE: ${{ steps.plan.outputs.prerelease }}
       - name: Verify release branch
+        if: steps.plan.outputs.should_publish == 'true'
         env:
           TARGET_BRANCH: ${{ steps.verify_release.outputs.target_branch }}
         run: |
@@ -54,27 +75,55 @@ jobs:
             refs/heads/next:refs/remotes/origin/next
           git merge-base --is-ancestor HEAD "refs/remotes/origin/$TARGET_BRANCH"
       - name: Run checks
-        run: pnpm check
+        if: steps.plan.outputs.should_publish == 'true'
+        run: pnpm check && pnpm test:legacy
+      - name: Run real-model release gate
+        if: steps.plan.outputs.should_publish == 'true'
+        run: pnpm test:e2e
+        env:
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+          MIDSCENE_MODEL_NAME: ${{ vars.MIDSCENE_MODEL_NAME }}
+          MIDSCENE_MODEL_API_KEY: ${{ secrets.MIDSCENE_MODEL_API_KEY }}
+          MIDSCENE_MODEL_BASE_URL: ${{ vars.MIDSCENE_MODEL_BASE_URL }}
+          MIDSCENE_MODEL_FAMILY: ${{ vars.MIDSCENE_MODEL_FAMILY }}
+      - name: Upload sanitized release evidence
+        if: always() && steps.plan.outputs.should_publish == 'true'
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: release-e2e-${{ github.run_id }}-${{ github.run_attempt }}
+          path: tests/e2e/.artifacts/
+          include-hidden-files: true
+          if-no-files-found: warn
+          retention-days: 30
       - name: Pack verified package
+        if: steps.plan.outputs.should_publish == 'true'
         run: |
           mkdir -p release-artifact
           pnpm pack --pack-destination release-artifact
       - name: Upload package artifact
+        if: steps.plan.outputs.should_publish == 'true'
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: npm-package
           path: release-artifact/*.tgz
           if-no-files-found: error
-          retention-days: 1
+          retention-days: 7
 
   publish:
     needs: verify
+    if: needs.verify.outputs.should_publish == 'true'
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     environment: npm
     permissions:
-      contents: read
+      contents: write
       id-token: write
     steps:
+      - name: Check out verified release scripts
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
       - name: Set up Node.js and npm registry
         uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
         with:
@@ -86,5 +135,22 @@ jobs:
         with:
           name: npm-package
           path: release-artifact
+      - name: Inspect registry before publication or recovery
+        id: registry
+        run: node scripts/registry-release.mjs plan
+        env:
+          DIST_TAG: ${{ needs.verify.outputs.dist_tag }}
+      - name: Create and verify approved stable GitHub Release
+        if: github.event_name == 'push'
+        run: node scripts/ensure-github-release.mjs
+        env:
+          GH_TOKEN: ${{ github.token }}
       - name: Publish public package with provenance
-        run: npm publish ./release-artifact/*.tgz --access public --provenance --tag "${{ needs.verify.outputs.dist_tag }}"
+        if: steps.registry.outputs.should_publish == 'true'
+        run: npm publish ./release-artifact/*.tgz --access public --provenance --tag "$DIST_TAG"
+        env:
+          DIST_TAG: ${{ needs.verify.outputs.dist_tag }}
+      - name: Verify exact npm version, integrity and dist-tag
+        run: node scripts/registry-release.mjs verify
+        env:
+          DIST_TAG: ${{ needs.verify.outputs.dist_tag }}

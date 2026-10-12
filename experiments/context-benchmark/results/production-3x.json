@@ -1,0 +1,1148 @@
+{
+  "generatedAt": "2026-09-22T09:44:13.477Z",
+  "model": "~typesafe/jev-latest",
+  "repeats": 3,
+  "fixtures": [
+    "weak-semantics",
+    "duplicate-labels",
+    "candidate-budget",
+    "repeated-cards",
+    "nested-portal",
+    "layer-recovery",
+    "disabled-and-covered",
+    "dynamic-rerender",
+    "frame-shadow",
+    "nested-scroll"
+  ],
+  "summary": {
+    "runs": 30,
+    "completed": 30,
+    "completionRate": 1,
+    "decisionCalls": 56,
+    "inputTokens": 202697,
+    "outputTokens": 6968,
+    "cost": 0.008513274000000001,
+    "averageElapsedMs": 1609.8333333333333
+  },
+  "results": [
+    {
+      "fixtureId": "weak-semantics",
+      "repeat": 1,
+      "completed": true,
+      "elapsedMs": 1112,
+      "result": {
+        "steps": 1,
+        "elapsedMs": 1092,
+        "usage": {
+          "calls": 1,
+          "inputTokens": 2120,
+          "outputTokens": 98,
+          "cost": 0.00008904
+        },
+        "textUsage": {
+          "calls": 0,
+          "inputTokens": 0,
+          "outputTokens": 0
+        },
+        "staleDecisions": 0,
+        "actionErrors": 0,
+        "rejectedCompletions": 0,
+        "rejectedBlocks": 0,
+        "completionVerified": true
+      },
+      "decisions": [
+        {
+          "step": 1,
+          "operation": "CLICK",
+          "label": "div"
+        }
+      ]
+    },
+    {
+      "fixtureId": "duplicate-labels",
+      "repeat": 1,
+      "completed": true,
+      "elapsedMs": 907,
+      "result": {
+        "steps": 1,
+        "elapsedMs": 890,
+        "usage": {
+          "calls": 1,
+          "inputTokens": 2145,
+          "outputTokens": 105,
+          "cost": 0.00009009
+        },
+        "textUsage": {
+          "calls": 0,
+          "inputTokens": 0,
+          "outputTokens": 0
+        },
+        "staleDecisions": 0,
+        "actionErrors": 0,
+        "rejectedCompletions": 0,
+        "rejectedBlocks": 0,
+        "completionVerified": true
+      },
+      "decisions": [
+        {
+          "step": 1,
+          "operation": "CLICK",
+          "label": "Continue"
+        }
+      ]
+    },
+    {
+      "fixtureId": "candidate-budget",
+      "repeat": 1,
+      "completed": true,
+      "elapsedMs": 1333,
+      "result": {
+        "steps": 1,
+        "elapsedMs": 1327,
+        "usage": {
+          "calls": 1,
+          "inputTokens": 28255,
+          "outputTokens": 269,
+          "cost": 0.00118671
+        },
+        "textUsage": {
+          "calls": 0,
+          "inputTokens": 0,
+          "outputTokens": 0
+        },
+        "staleDecisions": 0,
+        "actionErrors": 0,
+        "rejectedCompletions": 0,
+        "rejectedBlocks": 0,
+        "completionVerified": true
+      },
+      "decisions": [
+        {
+          "step": 1,
+          "operation": "CLICK",
+          "label": "Approve final review"
+        }
+      ]
+    },
+    {
+      "fixtureId": "repeated-cards",
+      "repeat": 1,
+      "completed": true,
+      "elapsedMs": 883,
+      "result": {
+        "steps": 1,
+        "elapsedMs": 860,
+        "usage": {
+          "calls": 1,
+          "inputTokens": 6353,
+          "outputTokens": 172,
+          "cost": 0.000266826
+        },
+        "textUsage": {
+          "calls": 0,
+          "inputTokens": 0,
+          "outputTokens": 0
+        },
+        "staleDecisions": 0,
+        "actionErrors": 0,
+        "rejectedCompletions": 0,
+        "rejectedBlocks": 0,
+        "completionVerified": true
+      },
+      "decisions": [
+        {
+          "step": 1,
+          "operation": "CLICK",
+          "label": "Open"
+        }
+      ]
+    },
+    {
+      "fixtureId": "nested-portal",
+      "repeat": 1,
+      "completed": true,
+      "elapsedMs": 4237,
+      "result": {
+        "steps": 5,
+        "elapsedMs": 4212,
+        "usage": {
+          "calls": 5,
+          "inputTokens": 12105,
+          "outputTokens": 650,
+          "cost": 0.00050841
+        },
+        "textUsage": {
+          "calls": 0,
+          "inputTokens": 0,
+          "outputTokens": 0
+        },
+        "staleDecisions": 0,
+        "actionErrors": 0,
+        "rejectedCompletions": 0,
+        "rejectedBlocks": 0,
+        "completionVerified": true
+      },
+      "decisions": [
+        {
+          "step": 1,
+          "operation": "CLICK",
+          "label": "Shipping method: Standard"
+        },
+        {
+          "step": 2,
+          "operation": "CLICK",
+          "label": "Priority shipping"
+        },
+        {
+          "step": 3,
+          "operation": "CLICK",
+          "label": "Shipping method: Priority"
+        },
+        {
+          "step": 4,
+          "operation": "CLICK",
+          "label": "Priority shipping"
+        },
+        {
+          "step": 5,
+          "operation": "CLICK",
+          "label": "Confirm checkout"
+        }
+      ]
+    },
+    {
+      "fixtureId": "layer-recovery",
+      "repeat": 1,
+      "completed": true,
+      "elapsedMs": 1670,
+      "result": {
+        "steps": 2,
+        "elapsedMs": 1658,
+        "usage": {
+          "calls": 2,
+          "inputTokens": 3096,
+          "outputTokens": 217,
+          "cost": 0.000130032
+        },
+        "textUsage": {
+          "calls": 0,
+          "inputTokens": 0,
+          "outputTokens": 0
+        },
+        "staleDecisions": 0,
+        "actionErrors": 0,
+        "rejectedCompletions": 0,
+        "rejectedBlocks": 0,
+        "completionVerified": true
+      },
+      "decisions": [
+        {
+          "step": 1,
+          "operation": "DISMISS",
+          "label": "Dismiss the active dialog or overlay without accepting it"
+        },
+        {
+          "step": 2,
+          "operation": "CLICK",
+          "label": "Continue setup"
+        }
+      ]
+    },
+    {
+      "fixtureId": "disabled-and-covered",
+      "repeat": 1,
+      "completed": true,
+      "elapsedMs": 1727,
+      "result": {
+        "steps": 2,
+        "elapsedMs": 1712,
+        "usage": {
+          "calls": 2,
+          "inputTokens": 3696,
+          "outputTokens": 189,
+          "cost": 0.000155232
+        },
+        "textUsage": {
+          "calls": 0,
+          "inputTokens": 0,
+          "outputTokens": 0
+        },
+        "staleDecisions": 0,
+        "actionErrors": 0,
+        "rejectedCompletions": 0,
+        "rejectedBlocks": 0,
+        "completionVerified": true
+      },
+      "decisions": [
+        {
+          "step": 1,
+          "operation": "CLICK",
+          "label": "Enable secure sync"
+        },
+        {
+          "step": 2,
+          "operation": "CLICK",
+          "label": "Activate secure sync"
+        }
+      ]
+    },
+    {
+      "fixtureId": "dynamic-rerender",
+      "repeat": 1,
+      "completed": true,
+      "elapsedMs": 1949,
+      "result": {
+        "steps": 3,
+        "elapsedMs": 1913,
+        "usage": {
+          "calls": 3,
+          "inputTokens": 4475,
+          "outputTokens": 273,
+          "cost": 0.00018795
+        },
+        "textUsage": {
+          "calls": 0,
+          "inputTokens": 0,
+          "outputTokens": 0
+        },
+        "staleDecisions": 0,
+        "actionErrors": 0,
+        "rejectedCompletions": 1,
+        "rejectedBlocks": 0,
+        "completionVerified": true
+      },
+      "decisions": [
+        {
+          "step": 1,
+          "operation": "CLICK",
+          "label": "Save profile"
+        },
+        {
+          "step": 2,
+          "operation": "DONE"
+        },
+        {
+          "step": 3,
+          "operation": "CLICK",
+          "label": "Save profile"
+        }
+      ]
+    },
+    {
+      "fixtureId": "frame-shadow",
+      "repeat": 1,
+      "completed": true,
+      "elapsedMs": 888,
+      "result": {
+        "steps": 1,
+        "elapsedMs": 825,
+        "usage": {
+          "calls": 1,
+          "inputTokens": 1745,
+          "outputTokens": 150,
+          "cost": 0.00007329
+        },
+        "textUsage": {
+          "calls": 0,
+          "inputTokens": 0,
+          "outputTokens": 0
+        },
+        "staleDecisions": 0,
+        "actionErrors": 0,
+        "rejectedCompletions": 0,
+        "rejectedBlocks": 0,
+        "completionVerified": true
+      },
+      "decisions": [
+        {
+          "step": 1,
+          "operation": "CLICK",
+          "label": "Activate control"
+        }
+      ]
+    },
+    {
+      "fixtureId": "nested-scroll",
+      "repeat": 1,
+      "completed": true,
+      "elapsedMs": 1531,
+      "result": {
+        "steps": 2,
+        "elapsedMs": 1510,
+        "usage": {
+          "calls": 2,
+          "inputTokens": 4075,
+          "outputTokens": 230,
+          "cost": 0.00017115
+        },
+        "textUsage": {
+          "calls": 0,
+          "inputTokens": 0,
+          "outputTokens": 0
+        },
+        "staleDecisions": 0,
+        "actionErrors": 0,
+        "rejectedCompletions": 0,
+        "rejectedBlocks": 0,
+        "completionVerified": true
+      },
+      "decisions": [
+        {
+          "step": 1,
+          "operation": "SCROLL",
+          "label": "Scroll Catalog item 1Catalog item 2Catalog item 3Catalog item 4Catalog item 5Catalog item 6Catalog item 7Catalog item 8Catalog item 9Catalog item 10Catalog item 11Open retention policy down"
+        },
+        {
+          "step": 2,
+          "operation": "CLICK",
+          "label": "Open retention policy"
+        }
+      ]
+    },
+    {
+      "fixtureId": "weak-semantics",
+      "repeat": 2,
+      "completed": true,
+      "elapsedMs": 892,
+      "result": {
+        "steps": 1,
+        "elapsedMs": 876,
+        "usage": {
+          "calls": 1,
+          "inputTokens": 2120,
+          "outputTokens": 98,
+          "cost": 0.00008904
+        },
+        "textUsage": {
+          "calls": 0,
+          "inputTokens": 0,
+          "outputTokens": 0
+        },
+        "staleDecisions": 0,
+        "actionErrors": 0,
+        "rejectedCompletions": 0,
+        "rejectedBlocks": 0,
+        "completionVerified": true
+      },
+      "decisions": [
+        {
+          "step": 1,
+          "operation": "CLICK",
+          "label": "div"
+        }
+      ]
+    },
+    {
+      "fixtureId": "duplicate-labels",
+      "repeat": 2,
+      "completed": true,
+      "elapsedMs": 811,
+      "result": {
+        "steps": 1,
+        "elapsedMs": 789,
+        "usage": {
+          "calls": 1,
+          "inputTokens": 2145,
+          "outputTokens": 105,
+          "cost": 0.00009009
+        },
+        "textUsage": {
+          "calls": 0,
+          "inputTokens": 0,
+          "outputTokens": 0
+        },
+        "staleDecisions": 0,
+        "actionErrors": 0,
+        "rejectedCompletions": 0,
+        "rejectedBlocks": 0,
+        "completionVerified": true
+      },
+      "decisions": [
+        {
+          "step": 1,
+          "operation": "CLICK",
+          "label": "Continue"
+        }
+      ]
+    },
+    {
+      "fixtureId": "candidate-budget",
+      "repeat": 2,
+      "completed": true,
+      "elapsedMs": 1367,
+      "result": {
+        "steps": 1,
+        "elapsedMs": 1361,
+        "usage": {
+          "calls": 1,
+          "inputTokens": 28255,
+          "outputTokens": 269,
+          "cost": 0.00118671
+        },
+        "textUsage": {
+          "calls": 0,
+          "inputTokens": 0,
+          "outputTokens": 0
+        },
+        "staleDecisions": 0,
+        "actionErrors": 0,
+        "rejectedCompletions": 0,
+        "rejectedBlocks": 0,
+        "completionVerified": true
+      },
+      "decisions": [
+        {
+          "step": 1,
+          "operation": "CLICK",
+          "label": "Approve final review"
+        }
+      ]
+    },
+    {
+      "fixtureId": "repeated-cards",
+      "repeat": 2,
+      "completed": true,
+      "elapsedMs": 846,
+      "result": {
+        "steps": 1,
+        "elapsedMs": 828,
+        "usage": {
+          "calls": 1,
+          "inputTokens": 6353,
+          "outputTokens": 172,
+          "cost": 0.000266826
+        },
+        "textUsage": {
+          "calls": 0,
+          "inputTokens": 0,
+          "outputTokens": 0
+        },
+        "staleDecisions": 0,
+        "actionErrors": 0,
+        "rejectedCompletions": 0,
+        "rejectedBlocks": 0,
+        "completionVerified": true
+      },
+      "decisions": [
+        {
+          "step": 1,
+          "operation": "CLICK",
+          "label": "Open"
+        }
+      ]
+    },
+    {
+      "fixtureId": "nested-portal",
+      "repeat": 2,
+      "completed": true,
+      "elapsedMs": 4178,
+      "result": {
+        "steps": 5,
+        "elapsedMs": 4150,
+        "usage": {
+          "calls": 5,
+          "inputTokens": 12105,
+          "outputTokens": 650,
+          "cost": 0.00050841
+        },
+        "textUsage": {
+          "calls": 0,
+          "inputTokens": 0,
+          "outputTokens": 0
+        },
+        "staleDecisions": 0,
+        "actionErrors": 0,
+        "rejectedCompletions": 0,
+        "rejectedBlocks": 0,
+        "completionVerified": true
+      },
+      "decisions": [
+        {
+          "step": 1,
+          "operation": "CLICK",
+          "label": "Shipping method: Standard"
+        },
+        {
+          "step": 2,
+          "operation": "CLICK",
+          "label": "Priority shipping"
+        },
+        {
+          "step": 3,
+          "operation": "CLICK",
+          "label": "Shipping method: Priority"
+        },
+        {
+          "step": 4,
+          "operation": "CLICK",
+          "label": "Priority shipping"
+        },
+        {
+          "step": 5,
+          "operation": "CLICK",
+          "label": "Confirm checkout"
+        }
+      ]
+    },
+    {
+      "fixtureId": "layer-recovery",
+      "repeat": 2,
+      "completed": true,
+      "elapsedMs": 1749,
+      "result": {
+        "steps": 2,
+        "elapsedMs": 1724,
+        "usage": {
+          "calls": 2,
+          "inputTokens": 3096,
+          "outputTokens": 217,
+          "cost": 0.000130032
+        },
+        "textUsage": {
+          "calls": 0,
+          "inputTokens": 0,
+          "outputTokens": 0
+        },
+        "staleDecisions": 0,
+        "actionErrors": 0,
+        "rejectedCompletions": 0,
+        "rejectedBlocks": 0,
+        "completionVerified": true
+      },
+      "decisions": [
+        {
+          "step": 1,
+          "operation": "DISMISS",
+          "label": "Dismiss the active dialog or overlay without accepting it"
+        },
+        {
+          "step": 2,
+          "operation": "CLICK",
+          "label": "Continue setup"
+        }
+      ]
+    },
+    {
+      "fixtureId": "disabled-and-covered",
+      "repeat": 2,
+      "completed": true,
+      "elapsedMs": 1623,
+      "result": {
+        "steps": 2,
+        "elapsedMs": 1604,
+        "usage": {
+          "calls": 2,
+          "inputTokens": 3696,
+          "outputTokens": 189,
+          "cost": 0.000155232
+        },
+        "textUsage": {
+          "calls": 0,
+          "inputTokens": 0,
+          "outputTokens": 0
+        },
+        "staleDecisions": 0,
+        "actionErrors": 0,
+        "rejectedCompletions": 0,
+        "rejectedBlocks": 0,
+        "completionVerified": true
+      },
+      "decisions": [
+        {
+          "step": 1,
+          "operation": "CLICK",
+          "label": "Enable secure sync"
+        },
+        {
+          "step": 2,
+          "operation": "CLICK",
+          "label": "Activate secure sync"
+        }
+      ]
+    },
+    {
+      "fixtureId": "dynamic-rerender",
+      "repeat": 2,
+      "completed": true,
+      "elapsedMs": 1745,
+      "result": {
+        "steps": 2,
+        "elapsedMs": 1723,
+        "usage": {
+          "calls": 2,
+          "inputTokens": 2957,
+          "outputTokens": 182,
+          "cost": 0.000124194
+        },
+        "textUsage": {
+          "calls": 0,
+          "inputTokens": 0,
+          "outputTokens": 0
+        },
+        "staleDecisions": 0,
+        "actionErrors": 0,
+        "rejectedCompletions": 0,
+        "rejectedBlocks": 0,
+        "completionVerified": true
+      },
+      "decisions": [
+        {
+          "step": 1,
+          "operation": "CLICK",
+          "label": "Save profile"
+        },
+        {
+          "step": 2,
+          "operation": "CLICK",
+          "label": "Save profile"
+        }
+      ]
+    },
+    {
+      "fixtureId": "frame-shadow",
+      "repeat": 2,
+      "completed": true,
+      "elapsedMs": 996,
+      "result": {
+        "steps": 1,
+        "elapsedMs": 947,
+        "usage": {
+          "calls": 1,
+          "inputTokens": 1745,
+          "outputTokens": 150,
+          "cost": 0.00007329
+        },
+        "textUsage": {
+          "calls": 0,
+          "inputTokens": 0,
+          "outputTokens": 0
+        },
+        "staleDecisions": 0,
+        "actionErrors": 0,
+        "rejectedCompletions": 0,
+        "rejectedBlocks": 0,
+        "completionVerified": true
+      },
+      "decisions": [
+        {
+          "step": 1,
+          "operation": "CLICK",
+          "label": "Activate control"
+        }
+      ]
+    },
+    {
+      "fixtureId": "nested-scroll",
+      "repeat": 2,
+      "completed": true,
+      "elapsedMs": 1522,
+      "result": {
+        "steps": 2,
+        "elapsedMs": 1495,
+        "usage": {
+          "calls": 2,
+          "inputTokens": 4075,
+          "outputTokens": 230,
+          "cost": 0.00017115
+        },
+        "textUsage": {
+          "calls": 0,
+          "inputTokens": 0,
+          "outputTokens": 0
+        },
+        "staleDecisions": 0,
+        "actionErrors": 0,
+        "rejectedCompletions": 0,
+        "rejectedBlocks": 0,
+        "completionVerified": true
+      },
+      "decisions": [
+        {
+          "step": 1,
+          "operation": "SCROLL",
+          "label": "Scroll Catalog item 1Catalog item 2Catalog item 3Catalog item 4Catalog item 5Catalog item 6Catalog item 7Catalog item 8Catalog item 9Catalog item 10Catalog item 11Open retention policy down"
+        },
+        {
+          "step": 2,
+          "operation": "CLICK",
+          "label": "Open retention policy"
+        }
+      ]
+    },
+    {
+      "fixtureId": "weak-semantics",
+      "repeat": 3,
+      "completed": true,
+      "elapsedMs": 799,
+      "result": {
+        "steps": 1,
+        "elapsedMs": 781,
+        "usage": {
+          "calls": 1,
+          "inputTokens": 2120,
+          "outputTokens": 98,
+          "cost": 0.00008904
+        },
+        "textUsage": {
+          "calls": 0,
+          "inputTokens": 0,
+          "outputTokens": 0
+        },
+        "staleDecisions": 0,
+        "actionErrors": 0,
+        "rejectedCompletions": 0,
+        "rejectedBlocks": 0,
+        "completionVerified": true
+      },
+      "decisions": [
+        {
+          "step": 1,
+          "operation": "CLICK",
+          "label": "div"
+        }
+      ]
+    },
+    {
+      "fixtureId": "duplicate-labels",
+      "repeat": 3,
+      "completed": true,
+      "elapsedMs": 823,
+      "result": {
+        "steps": 1,
+        "elapsedMs": 803,
+        "usage": {
+          "calls": 1,
+          "inputTokens": 2145,
+          "outputTokens": 105,
+          "cost": 0.00009009
+        },
+        "textUsage": {
+          "calls": 0,
+          "inputTokens": 0,
+          "outputTokens": 0
+        },
+        "staleDecisions": 0,
+        "actionErrors": 0,
+        "rejectedCompletions": 0,
+        "rejectedBlocks": 0,
+        "completionVerified": true
+      },
+      "decisions": [
+        {
+          "step": 1,
+          "operation": "CLICK",
+          "label": "Continue"
+        }
+      ]
+    },
+    {
+      "fixtureId": "candidate-budget",
+      "repeat": 3,
+      "completed": true,
+      "elapsedMs": 1284,
+      "result": {
+        "steps": 1,
+        "elapsedMs": 1265,
+        "usage": {
+          "calls": 1,
+          "inputTokens": 28255,
+          "outputTokens": 269,
+          "cost": 0.00118671
+        },
+        "textUsage": {
+          "calls": 0,
+          "inputTokens": 0,
+          "outputTokens": 0
+        },
+        "staleDecisions": 0,
+        "actionErrors": 0,
+        "rejectedCompletions": 0,
+        "rejectedBlocks": 0,
+        "completionVerified": true
+      },
+      "decisions": [
+        {
+          "step": 1,
+          "operation": "CLICK",
+          "label": "Approve final review"
+        }
+      ]
+    },
+    {
+      "fixtureId": "repeated-cards",
+      "repeat": 3,
+      "completed": true,
+      "elapsedMs": 872,
+      "result": {
+        "steps": 1,
+        "elapsedMs": 852,
+        "usage": {
+          "calls": 1,
+          "inputTokens": 6353,
+          "outputTokens": 172,
+          "cost": 0.000266826
+        },
+        "textUsage": {
+          "calls": 0,
+          "inputTokens": 0,
+          "outputTokens": 0
+        },
+        "staleDecisions": 0,
+        "actionErrors": 0,
+        "rejectedCompletions": 0,
+        "rejectedBlocks": 0,
+        "completionVerified": true
+      },
+      "decisions": [
+        {
+          "step": 1,
+          "operation": "CLICK",
+          "label": "Open"
+        }
+      ]
+    },
+    {
+      "fixtureId": "nested-portal",
+      "repeat": 3,
+      "completed": true,
+      "elapsedMs": 4412,
+      "result": {
+        "steps": 5,
+        "elapsedMs": 4393,
+        "usage": {
+          "calls": 5,
+          "inputTokens": 12105,
+          "outputTokens": 650,
+          "cost": 0.00050841
+        },
+        "textUsage": {
+          "calls": 0,
+          "inputTokens": 0,
+          "outputTokens": 0
+        },
+        "staleDecisions": 0,
+        "actionErrors": 0,
+        "rejectedCompletions": 0,
+        "rejectedBlocks": 0,
+        "completionVerified": true
+      },
+      "decisions": [
+        {
+          "step": 1,
+          "operation": "CLICK",
+          "label": "Shipping method: Standard"
+        },
+        {
+          "step": 2,
+          "operation": "CLICK",
+          "label": "Priority shipping"
+        },
+        {
+          "step": 3,
+          "operation": "CLICK",
+          "label": "Shipping method: Priority"
+        },
+        {
+          "step": 4,
+          "operation": "CLICK",
+          "label": "Priority shipping"
+        },
+        {
+          "step": 5,
+          "operation": "CLICK",
+          "label": "Confirm checkout"
+        }
+      ]
+    },
+    {
+      "fixtureId": "layer-recovery",
+      "repeat": 3,
+      "completed": true,
+      "elapsedMs": 1837,
+      "result": {
+        "steps": 2,
+        "elapsedMs": 1819,
+        "usage": {
+          "calls": 2,
+          "inputTokens": 3096,
+          "outputTokens": 217,
+          "cost": 0.000130032
+        },
+        "textUsage": {
+          "calls": 0,
+          "inputTokens": 0,
+          "outputTokens": 0
+        },
+        "staleDecisions": 0,
+        "actionErrors": 0,
+        "rejectedCompletions": 0,
+        "rejectedBlocks": 0,
+        "completionVerified": true
+      },
+      "decisions": [
+        {
+          "step": 1,
+          "operation": "DISMISS",
+          "label": "Dismiss the active dialog or overlay without accepting it"
+        },
+        {
+          "step": 2,
+          "operation": "CLICK",
+          "label": "Continue setup"
+        }
+      ]
+    },
+    {
+      "fixtureId": "disabled-and-covered",
+      "repeat": 3,
+      "completed": true,
+      "elapsedMs": 1711,
+      "result": {
+        "steps": 2,
+        "elapsedMs": 1701,
+        "usage": {
+          "calls": 2,
+          "inputTokens": 3696,
+          "outputTokens": 189,
+          "cost": 0.000155232
+        },
+        "textUsage": {
+          "calls": 0,
+          "inputTokens": 0,
+          "outputTokens": 0
+        },
+        "staleDecisions": 0,
+        "actionErrors": 0,
+        "rejectedCompletions": 0,
+        "rejectedBlocks": 0,
+        "completionVerified": true
+      },
+      "decisions": [
+        {
+          "step": 1,
+          "operation": "CLICK",
+          "label": "Enable secure sync"
+        },
+        {
+          "step": 2,
+          "operation": "CLICK",
+          "label": "Activate secure sync"
+        }
+      ]
+    },
+    {
+      "fixtureId": "dynamic-rerender",
+      "repeat": 3,
+      "completed": true,
+      "elapsedMs": 2331,
+      "result": {
+        "steps": 3,
+        "elapsedMs": 2308,
+        "usage": {
+          "calls": 3,
+          "inputTokens": 4495,
+          "outputTokens": 273,
+          "cost": 0.00018879
+        },
+        "textUsage": {
+          "calls": 0,
+          "inputTokens": 0,
+          "outputTokens": 0
+        },
+        "staleDecisions": 0,
+        "actionErrors": 0,
+        "rejectedCompletions": 0,
+        "rejectedBlocks": 0,
+        "completionVerified": true
+      },
+      "decisions": [
+        {
+          "step": 1,
+          "operation": "CLICK",
+          "label": "Save profile"
+        },
+        {
+          "step": 2,
+          "operation": "WAIT",
+          "label": "Wait for the page to update"
+        },
+        {
+          "step": 3,
+          "operation": "CLICK",
+          "label": "Save profile"
+        }
+      ]
+    },
+    {
+      "fixtureId": "frame-shadow",
+      "repeat": 3,
+      "completed": true,
+      "elapsedMs": 837,
+      "result": {
+        "steps": 1,
+        "elapsedMs": 795,
+        "usage": {
+          "calls": 1,
+          "inputTokens": 1745,
+          "outputTokens": 150,
+          "cost": 0.00007329
+        },
+        "textUsage": {
+          "calls": 0,
+          "inputTokens": 0,
+          "outputTokens": 0
+        },
+        "staleDecisions": 0,
+        "actionErrors": 0,
+        "rejectedCompletions": 0,
+        "rejectedBlocks": 0,
+        "completionVerified": true
+      },
+      "decisions": [
+        {
+          "step": 1,
+          "operation": "CLICK",
+          "label": "Activate control"
+        }
+      ]
+    },
+    {
+      "fixtureId": "nested-scroll",
+      "repeat": 3,
+      "completed": true,
+      "elapsedMs": 1423,
+      "result": {
+        "steps": 2,
+        "elapsedMs": 1406,
+        "usage": {
+          "calls": 2,
+          "inputTokens": 4075,
+          "outputTokens": 230,
+          "cost": 0.00017115
+        },
+        "textUsage": {
+          "calls": 0,
+          "inputTokens": 0,
+          "outputTokens": 0
+        },
+        "staleDecisions": 0,
+        "actionErrors": 0,
+        "rejectedCompletions": 0,
+        "rejectedBlocks": 0,
+        "completionVerified": true
+      },
+      "decisions": [
+        {
+          "step": 1,
+          "operation": "SCROLL",
+          "label": "Scroll Catalog item 1Catalog item 2Catalog item 3Catalog item 4Catalog item 5Catalog item 6Catalog item 7Catalog item 8Catalog item 9Catalog item 10Catalog item 11Open retention policy down"
+        },
+        {
+          "step": 2,
+          "operation": "CLICK",
+          "label": "Open retention policy"
+        }
+      ]
+    }
+  ]
+}

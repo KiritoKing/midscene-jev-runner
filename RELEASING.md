@@ -1,12 +1,14 @@
 # Releasing
 
-Publishing is triggered only when a GitHub Release is published. The release
-tag must exactly match `v` plus the version in `package.json`.
+The canonical process is in [docs/releasing.md](docs/releasing.md).
 
-## Trusted publishing
+- **Stable:** merge a reviewed increasing stable version/changelog PR into `main`. This authorizes automatic publication only after exact-commit checks, legacy tests, mandatory live-model scenes and package verification pass. Do not create a second manual stable Release or publish locally.
+- **Beta:** merge a reviewed `X.Y.Z-beta.N` PR into `next`, prepare the exact tag/draft with authorization, then a person clicks **Publish release** with the pre-release flag. The same publication gates apply.
+- Always verify npm version, integrity and dist-tag. A GitHub Release alone is not npm publication proof. Inspect uncertain results before retrying.
 
-The package uses npm Trusted Publishing. The npm-side GitHub Actions publisher
-must use these exact values:
+## Trusted publishing configuration
+
+The npm-side GitHub Actions publisher must retain these exact values:
 
 - Organization or user: `KiritoKing`
 - Repository: `midscene-jev-runner`
@@ -14,25 +16,6 @@ must use these exact values:
 - Environment: `npm`
 - Allowed action: direct publish
 
-No npm token or GitHub secret is required. The publish job runs on a
-GitHub-hosted runner and grants only `contents: read` and `id-token: write`.
-npm exchanges the workflow identity for a short-lived publishing credential
-and generates provenance for the public package.
+No persistent npm token is required. The GitHub-hosted Node 24 publish job uses `id-token: write` for OIDC/provenance and `contents: write` for the approved stable GitHub Release. The verification job has read-only repository permissions and no npm publishing identity.
 
-The workflow runs the complete check suite without publishing credentials,
-packs a single verified tarball, and only then enters the `npm` GitHub
-Environment to publish it.
-
-## Prepare a release
-
-Update the version without creating a local tag, validate it, and push the
-commit before publishing the GitHub Release:
-
-```sh
-pnpm version patch --no-git-tag-version
-pnpm check
-git add package.json
-git commit -m "chore(release): prepare vX.Y.Z"
-git push
-gh release create vX.Y.Z --target main --generate-notes
-```
+The live gate requires the repository's model Secrets and Variables listed in the canonical process. Missing model configuration fails closed. Branch protection and any `npm` environment reviewers must be configured by the repository owner; the workflow does not itself establish PR review enforcement.

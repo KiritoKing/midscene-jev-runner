@@ -1,0 +1,147 @@
+{
+  "generatedAt": "2026-09-22T09:48:58.243Z",
+  "model": "~typesafe/jev-latest",
+  "repeats": 3,
+  "fixtures": ["dynamic-rerender"],
+  "summary": {
+    "runs": 3,
+    "completed": 3,
+    "completionRate": 1,
+    "decisionCalls": 9,
+    "inputTokens": 14682,
+    "outputTokens": 819,
+    "cost": 0.000616644,
+    "averageElapsedMs": 2364.6666666666665
+  },
+  "results": [
+    {
+      "fixtureId": "dynamic-rerender",
+      "repeat": 1,
+      "completed": true,
+      "elapsedMs": 2465,
+      "result": {
+        "steps": 3,
+        "elapsedMs": 2427,
+        "usage": {
+          "calls": 3,
+          "inputTokens": 4894,
+          "outputTokens": 273,
+          "cost": 0.000205548
+        },
+        "textUsage": {
+          "calls": 0,
+          "inputTokens": 0,
+          "outputTokens": 0
+        },
+        "staleDecisions": 0,
+        "actionErrors": 0,
+        "rejectedCompletions": 0,
+        "rejectedBlocks": 0,
+        "completionVerified": true
+      },
+      "decisions": [
+        {
+          "step": 1,
+          "operation": "CLICK",
+          "label": "Save profile"
+        },
+        {
+          "step": 2,
+          "operation": "WAIT",
+          "label": "Wait for the page to update"
+        },
+        {
+          "step": 3,
+          "operation": "CLICK",
+          "label": "Save profile"
+        }
+      ]
+    },
+    {
+      "fixtureId": "dynamic-rerender",
+      "repeat": 2,
+      "completed": true,
+      "elapsedMs": 2337,
+      "result": {
+        "steps": 3,
+        "elapsedMs": 2320,
+        "usage": {
+          "calls": 3,
+          "inputTokens": 4894,
+          "outputTokens": 273,
+          "cost": 0.000205548
+        },
+        "textUsage": {
+          "calls": 0,
+          "inputTokens": 0,
+          "outputTokens": 0
+        },
+        "staleDecisions": 0,
+        "actionErrors": 0,
+        "rejectedCompletions": 0,
+        "rejectedBlocks": 0,
+        "completionVerified": true
+      },
+      "decisions": [
+        {
+          "step": 1,
+          "operation": "CLICK",
+          "label": "Save profile"
+        },
+        {
+          "step": 2,
+          "operation": "WAIT",
+          "label": "Wait for the page to update"
+        },
+        {
+          "step": 3,
+          "operation": "CLICK",
+          "label": "Save profile"
+        }
+      ]
+    },
+    {
+      "fixtureId": "dynamic-rerender",
+      "repeat": 3,
+      "completed": true,
+      "elapsedMs": 2292,
+      "result": {
+        "steps": 3,
+        "elapsedMs": 2277,
+        "usage": {
+          "calls": 3,
+          "inputTokens": 4894,
+          "outputTokens": 273,
+          "cost": 0.000205548
+        },
+        "textUsage": {
+          "calls": 0,
+          "inputTokens": 0,
+          "outputTokens": 0
+        },
+        "staleDecisions": 0,
+        "actionErrors": 0,
+        "rejectedCompletions": 0,
+        "rejectedBlocks": 0,
+        "completionVerified": true
+      },
+      "decisions": [
+        {
+          "step": 1,
+          "operation": "CLICK",
+          "label": "Save profile"
+        },
+        {
+          "step": 2,
+          "operation": "WAIT",
+          "label": "Wait for the page to update"
+        },
+        {
+          "step": 3,
+          "operation": "CLICK",
+          "label": "Save profile"
+        }
+      ]
+    }
+  ]
+}

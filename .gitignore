@@ -1,7 +1,10 @@
 node_modules/
+.pnpm-store/
 dist/
 coverage/
 .env
 .env.*
 *.log
+midscene_run/
+tests/e2e/.artifacts/
 .DS_Store

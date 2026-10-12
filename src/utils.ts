@@ -1,4 +1,27 @@
-import type { JevRecentAction } from './internal-types';
+import type { BrowserAction, JevRecentAction } from './internal-types';
+
+// Node handles are stable within a document; frame and document identity keep
+// equal handles in different browsing contexts from becoming the same edge.
+export const actionIdentity = (
+  action: Pick<BrowserAction, 'id' | 'node' | 'frameDocumentId' | 'framePath'>,
+): string =>
+  JSON.stringify([
+    action.frameDocumentId || '',
+    action.framePath || [],
+    action.node || action.id,
+  ]);
+
+export const actionEdgeKey = (
+  operation: JevRecentAction['operation'],
+  target: string,
+  signature?: string,
+  identity?: string,
+): string =>
+  JSON.stringify([
+    operation,
+    signature || '',
+    identity || actionIdentity({ id: target }),
+  ]);
 
 export const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null && !Array.isArray(value);
@@ -31,16 +54,26 @@ export const endpoint = (base: string, path: string): string => {
 export const recentActionsForModel = (
   actions: JevRecentAction[],
 ): Array<
-  Omit<JevRecentAction, 'snapshotMarker' | 'signature' | 'recoveryEpoch'>
+  Omit<
+    JevRecentAction,
+    | 'fromProgressMarker'
+    | 'toProgressMarker'
+    | 'signature'
+    | 'targetIdentity'
+    | 'recoveryEpoch'
+  >
 > =>
-  actions.map(({ operation, target, label, outcome, error, feedback }) => ({
-    operation,
-    ...(target !== undefined ? { target } : {}),
-    ...(label !== undefined ? { label } : {}),
-    outcome,
-    ...(error !== undefined ? { error } : {}),
-    ...(feedback !== undefined ? { feedback } : {}),
-  }));
+  actions.map(
+    ({ operation, target, label, outcome, error, feedback, group }) => ({
+      operation,
+      ...(target !== undefined ? { target } : {}),
+      ...(label !== undefined ? { label } : {}),
+      outcome,
+      ...(error !== undefined ? { error } : {}),
+      ...(feedback !== undefined ? { feedback } : {}),
+      ...(group !== undefined ? { group } : {}),
+    }),
+  );
 
 export const waitForAbortable = (
   duration: number,
