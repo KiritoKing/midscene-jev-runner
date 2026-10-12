@@ -139,6 +139,48 @@ describe('generic naming and popup safety boundaries', () => {
       expect(request.targets.SELECT).toBeDefined();
     });
   }
+  for (const html of [
+    '<form><label><input type="checkbox"> Include attachment</label><button>Send</button></form>',
+    "<div role=\"toolbar\"><button aria-pressed=\"false\" onclick=\"this.setAttribute('aria-pressed', this.getAttribute('aria-pressed') === 'false' ? 'true' : 'false')\">Enable signatures</button><button>Compile</button></div>",
+  ]) {
+    it(`keeps legal actions while limiting a rejected judgment to its observed state (${html.startsWith('<form') ? 'form' : 'toolbar'})`, async () => {
+      await page.setContent(html);
+      const goal = html.startsWith('<form')
+        ? 'Include attachment before Send'
+        : 'Enable signatures before Compile';
+      const snapshot = await observe(page, goal);
+      const previous = [
+        {
+          operation: 'DONE' as const,
+          outcome: 'rejected' as const,
+          fromProgressMarker: snapshot.progressMarker,
+        },
+      ];
+      const rejected = createDecisionRequest(snapshot, goal, previous);
+      expect(rejected.operations).not.toHaveProperty('DONE');
+      expect(rejected.targets.CLICK).toEqual(
+        createDecisionRequest(snapshot, goal).targets.CLICK,
+      );
+      const action = snapshot.actions.find((a) => a.effect === 'activate');
+      if (!action) throw new Error('Missing activation control');
+      expect(await executeAction(page, action, signal())).toBe(true);
+      const changed = await observe(page, goal);
+      expect(changed.progressMarker).not.toBe(snapshot.progressMarker);
+      expect(
+        createDecisionRequest(changed, goal, previous).operations,
+      ).toHaveProperty('DONE');
+      // Reversed and unordered intent do not trigger a global submit ban.
+      for (const counterGoal of [
+        'Send before including an attachment',
+        'Compile without enabling signatures',
+      ]) {
+        const request = createDecisionRequest(snapshot, counterGoal, previous);
+        expect(request.body.state.goal).toBe(counterGoal);
+        expect(request.targets.CLICK).toEqual(rejected.targets.CLICK);
+      }
+    });
+  }
+
   it('still excludes uncovered page controls behind a modal containing a combobox', async () => {
     await page.setContent(
       '<button id="background">Search</button><dialog open aria-modal="true"><input role="combobox" aria-controls="options"><div id="options" role="listbox"><button role="option">Cedar</button></div></dialog>',

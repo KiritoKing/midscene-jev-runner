@@ -3,7 +3,11 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { evaluateJevAssertion } from '../../src/assertion';
 import { executeAction } from '../../src/browser/execute';
 import { observe } from '../../src/browser/observe';
-import type { BrowserFact, BrowserSnapshot } from '../../src/internal-types';
+import type {
+  BrowserFact,
+  BrowserSnapshot,
+  DecisionRequest,
+} from '../../src/internal-types';
 import { runJev } from '../../src/runner';
 
 vi.mock('../../src/browser/observe', () => ({ observe: vi.fn() }));
@@ -143,6 +147,53 @@ describe('bounded readback recovery', () => {
     ).rejects.toThrow('no action was retried');
     expect(executeAction).toHaveBeenCalledTimes(1);
   });
+});
+
+describe('state-scoped terminal judgment recovery', () => {
+  for (const operation of ['DONE', 'BLOCKED']) {
+    it(`replans after rejected ${operation} without replaying the same terminal judgment`, async () => {
+      setup();
+      const requests: Array<DecisionRequest['body']> = [];
+      fetch.mockImplementation(async (_url, init) => {
+        requests.push(JSON.parse(String(init?.body)));
+        return answer(requests.length === 1 ? operation : 'CLICK');
+      });
+      vi.mocked(executeAction).mockResolvedValue(true);
+      const result = await runJev(page, {
+        goal: 'Continue',
+        fetch,
+        verifyCompletion: async () =>
+          vi.mocked(executeAction).mock.calls.length > 0,
+      });
+      expect(requests).toHaveLength(2);
+      expect(requests[1].questions.operation.criteria).not.toHaveProperty(
+        operation,
+      );
+      expect(requests[1].state.rejected_judgments_in_current_state).toEqual([
+        operation,
+      ]);
+      expect(requests[1].questions.operation.criteria).toHaveProperty('CLICK');
+      expect(executeAction).toHaveBeenCalledTimes(1);
+      expect(result.completionVerified).toBe(true);
+    });
+
+    it(`checks delayed independent completion before replanning rejected ${operation}`, async () => {
+      setup();
+      fetch.mockImplementation(async () => answer(operation));
+      const verifyCompletion = vi
+        .fn()
+        .mockResolvedValueOnce(false)
+        .mockResolvedValue(true);
+      const result = await runJev(page, {
+        goal: 'Continue',
+        fetch,
+        verifyCompletion,
+      });
+      expect(result.completionVerified).toBe(true);
+      expect(fetch).toHaveBeenCalledTimes(1);
+      expect(executeAction).not.toHaveBeenCalled();
+    });
+  }
 });
 
 describe('assertion evidence identity', () => {

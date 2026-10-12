@@ -17,6 +17,7 @@
 - Give operation selection the same bounded candidate facts as target selection without keyword-based action filters.
 - Retry only recognized transient observations once and permit independent completion reconciliation of uncertain actions without replaying them.
 - Preserve assertion fact identity, group and layer evidence, including hidden counterevidence.
+- Explain caller-specified action order and prerequisites in both decision questions without business-specific sequences or intent-keyword action bans; suppress independently rejected terminal judgments only in the same observed state while preserving delayed completion reconciliation.
 
 ### Validation and release
 

@@ -13,20 +13,44 @@ publication after a reviewed version PR is merged into `main`, **only if**
 all exact-commit/package/offline/legacy/live gates pass. No main merge or npm
 publication has been performed. See [release policy](releasing.md).
 
-A new full integrated `0.2.0` live run at approximately 20:07–20:08 Asia/Shanghai
+### CI-green follow-up
+
+The hotel failure below also reproduced in remote push run
+[38247978879](https://github.com/KiritoKing/midscene-jev-runner/actions/runs/38247978879).
+The shared decision context now explains caller-specified ordering and
+prerequisites to both operation and target selection, without parsing business
+steps or removing browser actions based on task wording. A terminal `DONE` or
+`BLOCKED` rejected by independent verification is omitted only for that exact
+observed progress marker; a changed state restores it. Independent completion
+is still checked before the next decision, including delayed hidden-state
+completion, and no uncertain action is replayed.
+
+The full local gate at approximately **20:31–20:32 Asia/Shanghai** passed
+**8/8 real-model cases**: all four original workflows plus native-checkbox and
+ARIA-pressed toolbar ordering, reversed submit-before-toggle intent, and an
+already-enabled default. Exact event order/count and the original server
+assertions remain intact; no retry or maintained-suite skip was added.
+`pnpm check` passed **89/89** maintained offline tests plus lint, types, build
+and package smoke; legacy remains **85 passed / two historical opt-in skips**.
+These are bounded regression proofs, not a statistical model reliability claim.
+Latest remote CI must also pass before review/merge.
+
+### Retained pre-fix consolidation evidence
+
+A full integrated `0.2.0` live run at approximately 20:07–20:08 Asia/Shanghai
 passed encyclopedia, marketing and flights but **failed hotel (3/4 overall)**.
 The model searched before applying filters, then checked them only on the
 results page and repeatedly returned `DONE`; the server ledger still recorded
 both search filters as false. Independent completion validation rejected all
 five `DONE` decisions and the recovery budget stopped the node. No hotel detail
-was opened. This is a remaining real-model reliability failure, not a passing
+was opened. This was a real-model reliability failure, not a passing
 release gate or a fixture assertion to weaken. Evidence remains local:
 [hotel failure](../tests/e2e/.artifacts/hotel-fee13dd4-80ed-4b2f-9974-d178e4a73d3d.json).
 The earlier two green runs remain historical evidence, not a guarantee that a
 post-merge release gate will pass. Remote CI must be reviewed before merging;
 failed publication gates leave the package unpublished.
 
-Final consolidation offline validation passed: `pnpm check` **83/83** (including
+Pre-fix consolidation offline validation passed: `pnpm check` **83/83** (including
 15 release-automation safety tests), `pnpm test:legacy` **85 passed / two
 historical opt-in skips**, `release:verify` for `v0.2.0`, commit-message checks
 and `git diff --check`. The live result above remains failing independently of

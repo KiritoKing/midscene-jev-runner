@@ -2,8 +2,9 @@
 
 The maintained test gate has two layers. `pnpm check` runs static checks, the
 offline Chromium scene integration suite, the build, and the package smoke test.
-`pnpm test:e2e` runs four local scenes through real JEV and Midscene model
-requests when credentials are configured. The legacy unit and experimental tests remain available through
+`pnpm test:e2e` runs four local workflows through real JEV and Midscene model
+requests, plus four real-JEV ordered-action variants/counterexamples, when
+credentials are configured. The legacy unit and experimental tests remain available through
 `pnpm test:legacy`, but are outside the maintained gate.
 
 | Command | Model requests | What passing means |
@@ -157,8 +158,20 @@ the [local release-readiness report](https://github.com/KiritoKing/midscene-jev-
 mechanisms, regression variants, and current boundaries. A later full stable
 consolidation run at 20:07–20:08 passed only 3/4: hotel searched before applying
 filters and repeated `DONE` despite independent negative verification. This
-remaining model reliability failure is retained in that report; it was not
-converted to a skip or a successful release gate.
+pre-fix model failure is retained in that report; it was not converted to a
+skip or a successful release gate.
+
+The follow-up shared decision context explains explicit temporal intent to
+operation and target selection without hard-filtering actions by task wording.
+Independent rejection of `DONE`/`BLOCKED` suppresses only that terminal judgment
+in the same observed state; changed state restores it, and delayed independent
+completion is checked before replanning. The full local gate at approximately
+20:31–20:32 passed **8/8** cases. The added real-model cases use native checkboxes
+and an ARIA-pressed toolbar, plus reversed order and an already-enabled default;
+exact event ledgers reject early/duplicate submissions and unrelated toggles.
+They are caller-owned synthetic pages, not native text-input tests. No original
+workflow assertion was weakened, and these passes do not estimate statistical
+reliability.
 
 The suite does not establish success on arbitrary sites, live booking, broad
 language coverage, canvas controls, untested authentication, or statistical
