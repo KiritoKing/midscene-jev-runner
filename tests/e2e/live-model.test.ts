@@ -9,7 +9,8 @@ import {
 import { createMidsceneNodes } from '@midscene/test/midscene';
 import { PlaywrightAgent } from '@midscene/web/playwright/agent';
 import { type Browser, type Page, chromium } from 'playwright';
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
+import { resolveLiveModelConfig } from '../../scripts/live-model-config.mjs';
 import { createJevNodes } from '../../src/index';
 import type { JevObserverEvent, JevRunResult } from '../../src/types';
 import {
@@ -33,6 +34,20 @@ interface ScenarioSpec {
   verify(goal: string, state: FixtureState, page: Page): Promise<boolean>;
   assert(state: FixtureState, initialState: FixtureState): void;
 }
+
+// Chromium's en-US native date field is segmented, not an ISO text box.
+// The caller composes public keyboard/input nodes; JEV never types dates.
+const nativeDateSteps = (label: string, value: string) => {
+  const prompt = `Visible ${label} native date input in step 1`;
+  // A public caller-provided location hint avoids vision points on the border.
+  const xpath = `//input[@type='date' and @aria-label='${label}']`;
+  return [
+    { aiKeyboardPress: { prompt, keyName: 'ArrowLeft', options: { xpath } } },
+    { aiKeyboardPress: { keyName: 'ArrowLeft' } },
+    { aiKeyboardPress: { keyName: 'ArrowLeft' } },
+    { aiInput: { prompt, value, options: { xpath, mode: 'typeOnly' } } },
+  ];
+};
 
 const specs: ScenarioSpec[] = [
   {
@@ -108,21 +123,11 @@ const specs: ScenarioSpec[] = [
           value: `Blue Meridian E2E ${runId.slice(0, 8)}`,
         },
       },
-      {
-        aiInput: {
-          prompt: 'Visible 开始日期 date input in step 1',
-          value: '2026-10-01',
-        },
-      },
-      {
-        aiInput: {
-          prompt: 'Visible 结束日期 date input in step 1',
-          value: '2026-12-30',
-        },
-      },
+      ...nativeDateSteps('开始日期', '10/01/2026'),
+      ...nativeDateSteps('结束日期', '12/30/2026'),
       {
         jevAct: {
-          goal: 'Advance from Basic information through People scope, Frequency control, and Entitlements, validating each step until the Difference preview is visible',
+          goal: 'Advance from Basic information through People scope, Frequency control, and Entitlements, validating each step until the Difference preview is visible. Preserve the inherited source settings: rule-growth, all eligible users, frequency 2 per day, benefit-voucher, quantity 1, and real-time grant mode; do not change these defaults',
           maxSteps: 18,
           maxTaskMs: 120_000,
         },
@@ -353,21 +358,13 @@ const specs: ScenarioSpec[] = [
 ];
 
 function requireModelConfiguration(): void {
-  const required = [
-    'OPENROUTER_API_KEY',
-    'MIDSCENE_MODEL_NAME',
-    'MIDSCENE_MODEL_API_KEY',
-    'MIDSCENE_MODEL_BASE_URL',
-    'MIDSCENE_MODEL_FAMILY',
-  ];
-  const missing = required.filter((name) => !process.env[name]);
+  const { missing, jev } = resolveLiveModelConfig(process.env);
   if (missing.length)
     throw new Error(`LIVE_MODEL_E2E_CONFIG_MISSING: ${missing.join(', ')}`);
   // Keep provider selection and credentials local to this test process.
-  process.env.MIDSCENE_JEV_API_KEY = process.env.OPENROUTER_API_KEY;
-  process.env.MIDSCENE_JEV_BASE_URL =
-    'https://openrouter.ai/api/alpha/decisions';
-  process.env.MIDSCENE_JEV_MODEL_NAME = '~typesafe/jev-latest';
+  process.env.MIDSCENE_JEV_API_KEY = jev.apiKey;
+  process.env.MIDSCENE_JEV_BASE_URL = jev.baseUrl;
+  process.env.MIDSCENE_JEV_MODEL_NAME = jev.modelName;
 }
 
 function summarizeCase(result: CaseRunResult | undefined) {
@@ -414,6 +411,7 @@ describe('real-model public Midscene Test composition', () => {
         const runId = randomUUID();
         const context = await browser.newContext({
           viewport: { width: 1440, height: 900 },
+          locale: 'en-US',
         });
         let blockedRequestCount = 0;
         await context.route('**/*', (route) => {
@@ -425,9 +423,38 @@ describe('real-model public Midscene Test composition', () => {
         const page = await context.newPage();
         let agent: PlaywrightAgent | undefined;
         const decisions: JevObserverEvent[] = [];
+        const decisionWire: Array<Record<string, unknown>> = [];
         const verification: Array<Record<string, unknown>> = [];
         let result: CaseRunResult | undefined;
         let error: unknown;
+        const originalFetch = globalThis.fetch;
+        const fetchSpy = vi
+          .spyOn(globalThis, 'fetch')
+          .mockImplementation(async (url, init) => {
+            const startedAt = performance.now();
+            let request: unknown;
+            try {
+              const body = JSON.parse(String(init?.body));
+              if (body.questions?.operation) request = body;
+            } catch {
+              // Other SDK requests are not JEV decision requests.
+            }
+            const response = await originalFetch(url, init);
+            if (request) {
+              // Only synthetic observations and answers, never headers or keys.
+              const payload = await response
+                .clone()
+                .json()
+                .catch(() => ({}));
+              decisionWire.push({
+                request,
+                status: response.status,
+                answers: payload.answers,
+                elapsedMs: Math.round(performance.now() - startedAt),
+              });
+            }
+            return response;
+          });
         try {
           await page.goto(fixture.url(spec.scenario, runId));
           const initialState = await fixture.readState(runId);
@@ -504,6 +531,7 @@ describe('real-model public Midscene Test composition', () => {
           error = caught;
           throw caught;
         } finally {
+          fetchSpy.mockRestore();
           let state: FixtureState | undefined;
           try {
             state = await fixture.readState(runId);
@@ -511,6 +539,20 @@ describe('real-model public Midscene Test composition', () => {
             /* navigation failed before fixture initialization */
           }
           const report = {
+            models: {
+              jev: process.env.MIDSCENE_JEV_MODEL_NAME,
+              midscene: process.env.MIDSCENE_MODEL_NAME,
+              midsceneFamily: process.env.MIDSCENE_MODEL_FAMILY,
+            },
+            inputProfile: {
+              locale: 'en-US',
+              ...(spec.scenario === 'marketing-clone'
+                ? {
+                    nativeDate:
+                      'public aiKeyboardPress + aiInput typeOnly with XPath hint',
+                  }
+                : {}),
+            },
             scenario: spec.scenario,
             runId,
             pagePath: new URL(page.url()).pathname,
@@ -518,6 +560,7 @@ describe('real-model public Midscene Test composition', () => {
             case: summarizeCase(result),
             state,
             decisions,
+            decisionWire,
             verification,
             failure:
               error instanceof Error

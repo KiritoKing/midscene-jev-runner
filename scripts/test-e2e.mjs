@@ -3,14 +3,9 @@ import { randomUUID } from 'node:crypto';
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 
-const required = [
-  'OPENROUTER_API_KEY',
-  'MIDSCENE_MODEL_NAME',
-  'MIDSCENE_MODEL_API_KEY',
-  'MIDSCENE_MODEL_BASE_URL',
-  'MIDSCENE_MODEL_FAMILY',
-];
-const missing = required.filter((name) => !process.env[name]?.trim());
+import { resolveLiveModelConfig } from './live-model-config.mjs';
+
+const { missing } = resolveLiveModelConfig(process.env);
 const artifactDir = resolve('tests/e2e/.artifacts');
 mkdirSync(artifactDir, { recursive: true });
 writeFileSync(

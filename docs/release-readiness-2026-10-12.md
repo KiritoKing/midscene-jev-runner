@@ -1,0 +1,105 @@
+# Local merge-readiness checkpoint — 2026-10-12
+
+Branch: `fix/0.2-release-readiness`, based on beta.5 commit `f1bd066`.
+Version remains `0.2.0-beta.5`. This checkpoint is local validation, not a
+merge, push, release, remote CI result, or stable-release certification.
+
+## General mechanisms and regression scope
+
+| Failure mechanism | Shared change | Variants and counterexamples |
+| --- | --- | --- |
+| Weak nearby naming climbed into a previous record and borrowed its identity | Bound ancestor lookup by the current semantic group and mirror the rule in stale-action validation | Empty links in cards and lists; explicit cross-group ARIA naming and ungrouped nearby captions remain valid |
+| Associated editable-combobox suggestions were treated as a modal overlay, hiding uncovered submit actions | Nonmodal listbox association stays nonblocking; hit testing and modal ancestor constraints still apply | Ordinary and open-shadow DOM suggestions; a containing modal still excludes background controls |
+| Untargeted Escape could clear caller-owned search text | Suppress unsafe dismissal evidence and recheck focused nonempty search inputs at dispatch, including frames/shadow roots | Search in ordinary DOM, shadow roots and iframes; blurred search, ordinary text input and explicit close controls remain usable |
+| Operation selection lacked the target evidence available to target selection; top-three evidence could omit valid actions without lexical relevance | Operation criteria include evidence for every target in the same bounded request; no intent-keyword operation filter | Suggestions and duplicate table rows with distracting navigation; cross-language form/table targets; unrelated selects remain legal in both directions |
+| Navigation/detachment invalidated observation or an uncertain action prevented independent reconciliation | One bounded retry for recognized transient observation errors only; independent completion verifier can reconcile failed post-action readback without replaying an action | Destroyed context and detached frame; closed pages, nontransient failures, cancellation, repeated failure and negative verification remain failures |
+| Identically labeled assertion facts lost identity/scope in model evidence | Carry fact IDs, group IDs and layer paths alongside existing frame/visibility/coverage evidence | Separate groups/layers and child frames; hidden/covered/disabled counterevidence is not blindly removed and insufficient evidence remains indeterminate |
+| Partial model override could mix another endpoint with fallback credentials | Live harness requires an atomic key/base/model triple whenever any override member is supplied | Default OpenRouter path, each partial override, complete local override without OpenRouter and whitespace-only required inputs |
+
+Regression sources:
+[semantic boundaries](../tests/integration/semantic-boundaries.test.ts),
+[readback and assertion identity](../tests/integration/readback-recovery.test.ts),
+[provider configuration](../tests/integration/live-model-config.test.ts).
+The readback failure injections are deterministic mocks, not a claim that all
+browser transition races have been reproduced. Existing real Chromium and
+HTTP fixture suites additionally exercise uncertain committed responses,
+independent readback and caller-owned pages.
+
+No business-specific execution branch, fill/clear support, browser lifecycle
+ownership, peer-dependency change, threshold reduction, or weakened final
+assertion was added.
+
+## Caller-side native date composition
+
+The previous marketing caller passed ISO strings to Midscene's segmented native
+date control. One typing strategy produced invalid years; another left empty
+values. Public `aiKeyboardPress` nodes now focus the month segment, followed by
+public `aiInput` using `typeOnly`, a caller-provided XPath hint and month/day/year
+text in explicit `en-US` Chromium. No direct DOM value assignment or Playwright
+fill substitutes for a native Midscene input node.
+
+This is a scoped caller composition, **not a runner feature or a fix to the
+Midscene input implementation**. Vision-only location failed for a border hit;
+other locales, browser engines and date widgets remain unverified. The advance
+goal explicitly asks to preserve the source defaults, as already required by
+the original exact final assertions.
+
+## Acceptance evidence
+
+- `pnpm check`: lint, types, **68/68 maintained offline tests**, ESM/CJS/types
+  build and package smoke passed.
+- `pnpm test:legacy`: **85 passed, two historical opt-in live suites skipped**;
+  these skips are outside the maintained real-model gate.
+- Full `pnpm test:e2e`: **4/4 passed in two consecutive independent runs**,
+  approximately 19:09–19:10 and 19:16–19:17 Asia/Shanghai, using JEV
+  `~typesafe/jev-latest` and Midscene `deepseek-v4-flash-vision-exp`
+  (family `deepseek`). No retries or scenario skips.
+  Each scene recorded zero blocked outside-origin browser requests and checked
+  independent server state plus visible page state. This is not host-wide
+  egress isolation.
+
+First complete green run, git-ignored local synthetic evidence:
+
+- [Encyclopedia](../tests/e2e/.artifacts/encyclopedia-e69ad738-af78-416b-8068-6139c0a61f01.json)
+- [Marketing clone](../tests/e2e/.artifacts/marketing-clone-04e2a97c-b010-40cb-b9a0-002aba7a08a7.json)
+- [Flights](../tests/e2e/.artifacts/flights-5fdc5496-2e2e-40a9-8d0b-689cd6a5b86d.json)
+- [Hotel](../tests/e2e/.artifacts/hotel-b5de9682-ec38-4ab7-83c1-bd0fdaf13896.json)
+
+Second independent green run:
+[Encyclopedia](../tests/e2e/.artifacts/encyclopedia-662a1116-df3c-484d-97ad-115627382954.json),
+[Marketing clone](../tests/e2e/.artifacts/marketing-clone-6bc1323d-4868-4d56-8ad7-a9c74eacead1.json),
+[Flights](../tests/e2e/.artifacts/flights-bbcadfe2-d729-4188-a6b0-adbfc45a9466.json),
+[Hotel](../tests/e2e/.artifacts/hotel-50cec422-5750-4475-baf8-8aa8031aef60.json).
+Two passes still do not establish a statistical reliability rate.
+
+The marketing ledger asserts exactly one committed clone, exact dates and all
+inherited settings, unchanged source, four validated stages and warning
+configuration landing. Hotel and encyclopedia ledgers reject extra wrong-record
+navigation. Flight asserts exact criteria and search count. Model `DONE` alone
+cannot pass these assertions.
+
+Earlier failure artifacts remain local, including
+[operation-summary truncation](../tests/e2e/.artifacts/marketing-clone-247c7202-099f-407b-9865-b5eda6a0bafc.json):
+target selection found the enabled next button while operation selection
+repeatedly returned `BLOCKED`; the date fields were already correct. Retaining
+this evidence avoids attributing the eventual pass to a date workaround alone.
+
+## Models and remaining external steps
+
+[The current-wire text-only comparison](../experiments/model-benchmark/README.md)
+retains 360 measured attempts including failures. JEV remains the default;
+neither clef variant improved runner results, and local laya rejects the
+structured target criteria despite fast small-text decisions. No multimodal
+comparison or production provider adapter was introduced.
+
+Local gates are evidence for review of this patch, not a broad success-rate
+estimate. Candidate context remains bounded; unoffered controls, arbitrary
+sites, closed shadow roots, unsupported canvas controls, and other input
+profiles are outside these proofs. Operation evidence duplicates target facts
+within the existing 40 KB budget; budget pruning can reduce the shared
+shortlist, so it does not promise all controls on a dense page are offered.
+
+Remote CI credentials, latest integration-branch synchronization, PR conflicts,
+branch protection, and human release approval still require the repository
+owner's authorized integration process. No secret, credential value, private
+fixture, production data, push, PR or npm publication was made by this patch.

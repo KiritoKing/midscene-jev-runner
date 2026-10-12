@@ -5,6 +5,7 @@
       "dist/**",
       ".rslib/**",
       "node_modules/**",
+      ".pnpm-store/**",
       "midscene_run/**",
       "tests/e2e/.artifacts/**",
       "src/browser/snapshot-runtime.generated.ts"

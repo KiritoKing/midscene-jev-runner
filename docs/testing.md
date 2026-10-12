@@ -138,10 +138,23 @@ not create, route, navigate, or close it. The calling test owns setup,
 navigation, browser request blocking, and cleanup.
 
 The flight case uses Midscene `aiInput` for city text, then JEV selects the
-observed airport suggestions and operates the calendar. Native
-`input[type=date]` entry through the two public Midscene `aiInput` strategies
-has not yet produced a correct value in this harness; retain it as an
-uncovered variant rather than recording an expected failure as a pass.
+observed airport suggestions and operates the calendar. The marketing caller
+now uses public `aiKeyboardPress` nodes to focus the month segment and public
+`aiInput` with `mode: 'typeOnly'` to enter month/day/year values. Its location
+hint is a caller-provided XPath and its Chromium locale is explicitly `en-US`.
+JEV neither fills nor clears these inputs. This verifies that public-node
+composition profile, **not** a fix to Midscene's ISO-date typing or proof that
+vision-only location, every locale, or other browsers work.
+
+On 2026-10-12 the full four-case live gate passed in two consecutive independent
+runs with JEV `~typesafe/jev-latest` and Midscene
+`deepseek-v4-flash-vision-exp`. Exact event ledgers, preserved source
+configuration, date values, and exactly-once clone assertions were retained.
+The caller goal now explicitly requests preserving inherited settings,
+matching the pre-existing assertion contract. These two successful runs do not
+establish a measured reliability rate. Earlier failures above remain evidence;
+the [local release-readiness report](release-readiness-2026-10-12.md) records
+mechanisms, regression variants, and current boundaries.
 
 The suite does not establish success on arbitrary sites, live booking, broad
 language coverage, canvas controls, untested authentication, or statistical
@@ -151,15 +164,24 @@ limitations; do not convert a failed or missing-config run into a skip.
 
 ## Provider setup and evidence
 
-`pnpm test:e2e` requires the following nonempty process environment entries:
-`OPENROUTER_API_KEY`, `MIDSCENE_MODEL_NAME`,
+`pnpm test:e2e` always requires nonempty `MIDSCENE_MODEL_NAME`,
 `MIDSCENE_MODEL_API_KEY`, `MIDSCENE_MODEL_BASE_URL`, and
-`MIDSCENE_MODEL_FAMILY`. Supply credentials through an approved secret store or
-runtime injection; never commit them or write their values to a test report.
-The live harness maps the supplied OpenRouter key to JEV in the test process
-and selects the compatible Decisions endpoint and `~typesafe/jev-latest` model.
-The `MIDSCENE_MODEL_*` entries configure the separate Midscene text-input
-model. Both JEV and Midscene must be reachable for these cases.
+`MIDSCENE_MODEL_FAMILY`. Without a JEV override it also requires
+`OPENROUTER_API_KEY` and selects OpenRouter Decisions with
+`~typesafe/jev-latest`. To test another JEV provider, explicitly supply the
+complete triple `MIDSCENE_JEV_API_KEY`, `MIDSCENE_JEV_BASE_URL`, and
+`MIDSCENE_JEV_MODEL_NAME`. Any nonempty member activates the override;
+partial triples fail preflight, even if an OpenRouter key is also present.
+This avoids sending one provider's key to another provider's fallback endpoint.
+Quote model names beginning with `~` in shells that expand them.
+
+Supply credentials through an approved secret store or runtime injection;
+never commit them or write their values to a test report. The separate
+`MIDSCENE_MODEL_*` entries configure native text-input nodes. Both models must
+be reachable. Explicit configuration does not prove protocol compatibility:
+the current runner wire has structured target criteria and instructions.
+`pnpm test:models` screens text-only models separately; see the
+[benchmark methodology and results](../experiments/model-benchmark/README.md).
 
 The command checks names before starting Vitest, sets `RUN_LIVE_MODEL_E2E=1`,
 and fails with `INFRA_BLOCKED` and the *names* of missing entries if any are
