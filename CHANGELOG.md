@@ -17,3 +17,8 @@
 - Add maintained local Chromium scene tests and a separate real-model CI job.
 - Improve observation through open shadow roots and slots, preserve current control values, and expose SELECT option target values.
 - See the [beta.4 release notes](https://github.com/KiritoKing/midscene-jev-runner/releases/tag/v0.2.0-beta.4) for validation details and known limitations.
+
+## [0.1.2] - 2026-09-22
+
+- Add generic runner workflow recovery and reorganize the implementation into modules.
+- See the [v0.1.1...v0.1.2 comparison](https://github.com/KiritoKing/midscene-jev-runner/compare/v0.1.1...v0.1.2) for the full historical change set.
