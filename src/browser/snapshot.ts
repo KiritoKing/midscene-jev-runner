@@ -203,13 +203,20 @@ export function browserSnapshot(
     }
     const content = textOf(e);
     if (content) return { label: content, source: 'content', confidence: 0.72 };
+    const boundary = e.closest(
+      'tr,[role="row"],li,[role="listitem"],[class*="card" i],[role="group"],[role="toolbar"],fieldset,[class*="form-item" i],[class*="form-field" i]',
+    );
     let item = parent(e);
     for (let depth = 0; item && depth < 4; depth += 1, item = parent(item)) {
+      // Nearby copy is only weak evidence. Never borrow a sibling record's
+      // identity when climbing out of the current semantic group.
+      if (boundary === e || item.matches('body,html,main')) break;
       const label = clean(
         textOf(item.querySelector('label,[class*="label"]')) ||
-          textOf(item.previousElementSibling),
+          (item !== boundary ? textOf(item.previousElementSibling) : ''),
       );
       if (label) return { label, source: 'nearby', confidence: 0.45 };
+      if (item === boundary) break;
     }
     return { label: role(e), source: 'inferred', confidence: 0.2 };
   };
@@ -381,12 +388,26 @@ export function browserSnapshot(
   for (const layer of layersByElement.values()) {
     const target = layer.element.id;
     const trigger = target
-      ? all.find((e) =>
-          ['aria-controls', 'aria-owns'].some((attribute) =>
-            clean(e.getAttribute(attribute)).split(/\s+/u).includes(target),
-          ),
+      ? all.find(
+          (e) =>
+            e.getRootNode() === layer.element.getRootNode() &&
+            ['aria-controls', 'aria-owns'].some((attribute) =>
+              clean(e.getAttribute(attribute)).split(/\s+/u).includes(target),
+            ),
         )
       : undefined;
+    // An explicitly associated editable combobox's suggestions do not make
+    // the rest of the page modal. Hit testing still excludes covered controls,
+    // and a containing modal remains the blocking ancestor.
+    if (
+      layer.kind === 'listbox' &&
+      trigger instanceof HTMLInputElement &&
+      (trigger.getAttribute('role') === 'combobox' ||
+        ['list', 'both'].includes(
+          trigger.getAttribute('aria-autocomplete') || '',
+        ))
+    )
+      layer.blocking = false;
     layer.parentId =
       nearestLayer(parent(layer.element))?.id ||
       nearestLayer(trigger || null)?.id ||
@@ -401,7 +422,7 @@ export function browserSnapshot(
         ? -1
         : 1),
   );
-  const activeLayer = layers.at(-1);
+  const activeLayer = layers.filter((layer) => layer.blocking).at(-1);
   const path = (e: Element) => {
     const output = ['page'];
     const seen = new Set<string>();
@@ -1133,7 +1154,14 @@ export function browserSnapshot(
           uncovered(e),
       )
     : undefined;
-  if (activeLayer)
+  let focused = document.activeElement;
+  while (focused?.shadowRoot?.activeElement)
+    focused = focused.shadowRoot.activeElement;
+  const escapeClearsSearch =
+    focused instanceof HTMLInputElement &&
+    focused.type === 'search' &&
+    focused.value.length > 0;
+  if (activeLayer && (close || !escapeClearsSearch))
     addAction({
       id: 'dismiss_layer',
       ...(close?.getAttribute('data-midscene-jev-id')

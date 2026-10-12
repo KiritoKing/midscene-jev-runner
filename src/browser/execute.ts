@@ -157,17 +157,25 @@ const isFresh = async (page: Page, action: BrowserAction): Promise<boolean> => {
             }
             const content = textOf(item);
             if (content) return { label: content, source: 'content' };
+            const boundary = item.closest(
+              'tr,[role="row"],li,[role="listitem"],[class*="card" i],[role="group"],[role="toolbar"],fieldset,[class*="form-item" i],[class*="form-field" i]',
+            );
             let candidate = parent(item);
             for (
               let depth = 0;
               candidate && depth < 4;
               depth += 1, candidate = parent(candidate)
             ) {
+              if (boundary === item || candidate.matches('body,html,main'))
+                break;
               const label = clean(
                 textOf(candidate.querySelector('label,[class*="label"]')) ||
-                  textOf(candidate.previousElementSibling),
+                  (candidate !== boundary
+                    ? textOf(candidate.previousElementSibling)
+                    : ''),
               );
               if (label) return { label, source: 'nearby' };
+              if (candidate === boundary) break;
             }
             return { label: role(item), source: 'inferred' };
           };
@@ -442,7 +450,27 @@ export const executeAction = async (
   } else if (action.kind === 'dismiss') {
     if (action.node || action.selector)
       await targetLocator(frame, action).click({ timeout: 5_000 });
-    else await page.keyboard.press('Escape');
+    else {
+      // Escape has a native text-clearing default on focused search inputs.
+      // Recheck at dispatch time; never restore text or replay an unsafe key.
+      const focusStates = await Promise.all(
+        (page.frames?.() || [page]).map((frame) =>
+          frame.evaluate(() => {
+            if (!document.hasFocus()) return false;
+            let focused = document.activeElement;
+            while (focused?.shadowRoot?.activeElement)
+              focused = focused.shadowRoot.activeElement;
+            return (
+              focused instanceof HTMLInputElement &&
+              focused.type === 'search' &&
+              focused.value.length > 0
+            );
+          }),
+        ),
+      );
+      if (focusStates.some(Boolean)) return false;
+      await page.keyboard.press('Escape');
+    }
   } else {
     const locator = targetLocator(frame, action);
     if (action.kind === 'click') await locator.click({ timeout: 5_000 });

@@ -75,6 +75,9 @@ const assertionBody = (
       ...(facts.length
         ? {
             elements: facts.map((fact) => ({
+              id: fact.id,
+              ...(fact.groupId ? { group_id: fact.groupId } : {}),
+              ...(fact.layerPath?.length ? { layer_path: fact.layerPath } : {}),
               label: fact.label.slice(0, MAX_LABEL_LENGTH),
               role: fact.role,
               ...(fact.currentValue !== undefined

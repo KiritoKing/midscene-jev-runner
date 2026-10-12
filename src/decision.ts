@@ -204,6 +204,18 @@ export const createDecisionRequest = (
       operations[operation] ??= operationDescription(operation);
     }
 
+    // Give operation selection evidence for every target offered below. A
+    // separate top-N summary can hide valid actions when lexical ranking has
+    // no signal (for example across languages). The shared request budget
+    // bounds both questions together; this is context, not an action filter.
+    for (const operation of Object.keys(targets))
+      operations[operation] =
+        `${operationDescription(operation as JevOperation)} Available target evidence: ${JSON.stringify(
+          currentActions
+            .filter((action) => operationByAction[action.kind] === operation)
+            .map((action) => candidateFact(action, includeContext)),
+        )}`;
+
     const questions: DecisionRequest['body']['questions'] = {
       operation: {
         type: 'choice',

@@ -90,6 +90,26 @@ export const runJev = async (
     signal.throwIfAborted();
     return verified === true;
   };
+  // Retry only a read invalidated by a browser transition, never an action.
+  // Each retry is a new full observation and remains inside the task budget.
+  const readSnapshot = async (): Promise<BrowserSnapshot> => {
+    for (let attempt = 0; ; attempt += 1) {
+      signal.throwIfAborted();
+      try {
+        const snapshot = await observe(page, options.goal);
+        signal.throwIfAborted();
+        return snapshot;
+      } catch (error) {
+        signal.throwIfAborted();
+        const message = error instanceof Error ? error.message : '';
+        const transition =
+          /Execution context was destroyed|Frame was detached|Cannot find context with specified id/iu.test(
+            message,
+          );
+        if (!transition || attempt >= 1 || page.isClosed?.()) throw error;
+      }
+    }
+  };
   const result: JevRunResult = {
     steps: 0,
     elapsedMs: 0,
@@ -116,7 +136,7 @@ export const runJev = async (
 
   try {
     signal.throwIfAborted();
-    let snapshot = await observe(page, options.goal);
+    let snapshot = await readSnapshot();
     let noProgressSteps = 0;
     let recoveryEpoch = 0;
     const visitedProgressStates = new Set<string>([snapshot.progressMarker]);
@@ -209,7 +229,7 @@ export const runJev = async (
           signature: 'DONE',
           recoveryEpoch,
         });
-        snapshot = await observe(page, options.goal);
+        snapshot = await readSnapshot();
         rememberProgressState(snapshot.progressMarker);
         noProgressSteps += 1;
         if (noProgressSteps >= maxNoProgressSteps)
@@ -235,7 +255,7 @@ export const runJev = async (
           signature: 'BLOCKED',
           recoveryEpoch,
         });
-        snapshot = await observe(page, options.goal);
+        snapshot = await readSnapshot();
         rememberProgressState(snapshot.progressMarker);
         noProgressSteps += 1;
         if (noProgressSteps >= maxNoProgressSteps)
@@ -277,15 +297,15 @@ export const runJev = async (
           progressed: false,
           error: message,
         });
-        // A browser error may arrive after dispatch. Read back once, but do not
-        // let the loop repeat a potentially completed side effect.
+        // A browser error may arrive after dispatch. Independent readback can
+        // prove completion even if DOM observation is unavailable. Never replay.
         signal.throwIfAborted();
-        snapshot = await observe(page, options.goal);
         if (options.verifyCompletion && (await verify())) {
           result.completionVerified = true;
           options.observer?.({ type: 'completion', step, verified: true });
           return finish();
         }
+        snapshot = await readSnapshot();
         throw new Error(
           'JEV browser action failed with an uncertain outcome; no action was retried.',
           { cause: error },
@@ -312,7 +332,7 @@ export const runJev = async (
           stale: true,
           progressed: false,
         });
-        snapshot = await observe(page, options.goal);
+        snapshot = await readSnapshot();
         rememberProgressState(snapshot.progressMarker);
         noProgressSteps += 1;
         if (noProgressSteps >= maxNoProgressSteps)
@@ -321,7 +341,16 @@ export const runJev = async (
           );
         continue;
       }
-      snapshot = await observe(page, options.goal);
+      try {
+        snapshot = await readSnapshot();
+      } catch (error) {
+        if (options.verifyCompletion && (await verify())) {
+          options.observer?.({ type: 'completion', step, verified: true });
+          result.completionVerified = true;
+          return finish();
+        }
+        throw error;
+      }
       const repeatedState = rememberProgressState(snapshot.progressMarker);
       const feedback = snapshot.alerts;
       const markerProgressed =
