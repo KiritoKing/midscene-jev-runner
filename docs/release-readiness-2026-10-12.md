@@ -35,6 +35,35 @@ and package smoke; legacy remains **85 passed / two historical opt-in skips**.
 These are bounded regression proofs, not a statistical model reliability claim.
 Latest remote CI must also pass before review/merge.
 
+### Review-comment follow-up
+
+Three review findings in PR #6 are addressed by shared mechanisms, not fixture
+branches:
+
+| Finding | Change | Variants and counterexamples |
+| --- | --- | --- |
+| Async actions without loading markup lose every settling candidate after the fixed dispatch delay | Offer WAIT for an unchanged, non-error dispatch in the current recovery epoch; use existing attempt/step/time caps and independent readback | Ordinary button and ARIA tab with a delayed callback; no idle WAIT, no settling after stale/failed/changed/old-epoch evidence, and a permanent no-op still fails without replay |
+| Global number masking erases page/counter progress | Preserve exact visible text within the existing 1,200-character progress evidence budget | Numeric heading and output outside action scope; hidden numeric churn stays excluded and visible round trips retain cycle identity |
+| Same-name controls share cycle/failure bans | Key edges by operation, signature and stable node plus frame/document identity | Identical cards and table rows; only the tried edge is suppressed, untried duplicates and other frame/document identities remain available |
+
+The initial eight regressions failed on the previous implementation, then passed
+after the fixes. Two additional evidence-boundary tests also pass. At approximately
+**20:58–21:00 Asia/Shanghai**, the current source passed `pnpm check` (**99/99**
+maintained offline tests, lint, types, build and package smoke), legacy (**85
+passed / two historical opt-in skips**), and the full real-model gate (**8/8**,
+no retries or scene skips). The live gate preserves all original independent
+server state and exact ledger assertions.
+
+The async regressions deliberately hold a callback beyond dispatch readback;
+they are not a latency-distribution test. WAIT is a model-selectable recovery
+candidate, not proof of pending work or guaranteed completion of arbitrarily long
+requests. Numeric evidence remains bounded; visible volatile timers can count as
+state changes, while total step/time budgets and independent verification still
+bound execution. Frame/document isolation is additionally checked at candidate
+construction; these tests do not claim exhaustive browser transition coverage.
+Latest remote CI must be reviewed for the new commit before merging; no merge
+or publication is performed here.
+
 ### Retained pre-fix consolidation evidence
 
 A full integrated `0.2.0` live run at approximately 20:07–20:08 Asia/Shanghai

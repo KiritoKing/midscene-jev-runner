@@ -1217,7 +1217,9 @@ export function browserSnapshot(
     document.title,
     workflowSteps,
     semanticFacts,
-    clean(text.replace(/\b\d+(?:[.,:/-]\d+)*\b/gu, '#'), 1_200),
+    // Numeric text can be the only observable page/counter/quantity progress.
+    // Keep exact visible evidence; step/time budgets still bound incidental churn.
+    clean(text, 1_200),
     scrollPositions,
     activeLayer ? [activeLayer.kind, activeLayer.label] : null,
     alerts,

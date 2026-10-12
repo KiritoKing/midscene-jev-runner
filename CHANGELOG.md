@@ -18,6 +18,9 @@
 - Retry only recognized transient observations once and permit independent completion reconciliation of uncertain actions without replaying them.
 - Preserve assertion fact identity, group and layer evidence, including hidden counterevidence.
 - Explain caller-specified action order and prerequisites in both decision questions without business-specific sequences or intent-keyword action bans; suppress independently rejected terminal judgments only in the same observed state while preserving delayed completion reconciliation.
+- Offer bounded read-only settling after an unchanged successful action readback even without loading markup; idle, stale and failed actions do not create this recovery path, and independent completion remains required.
+- Preserve visible numeric progress in bounded page evidence instead of masking every number; hidden numeric churn remains excluded.
+- Scope cycle and unsuccessful-action suppression by operation, semantic signature and actual node/frame/document identity, leaving untried same-name controls available.
 
 ### Validation and release
 

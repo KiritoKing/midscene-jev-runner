@@ -19,7 +19,7 @@ import type {
   JevResponse,
 } from './internal-types';
 import type { JevOperation, JevRunOptions, JevRunResult } from './types';
-import { tokenCount } from './utils';
+import { actionIdentity, tokenCount } from './utils';
 
 const actionEffectAchieved = (
   action: BrowserAction,
@@ -284,6 +284,7 @@ export const runJev = async (
           error: message,
           fromProgressMarker: previousProgressMarker,
           signature: action.signature || `${operation}:${target || action.id}`,
+          targetIdentity: actionIdentity(action),
           recoveryEpoch,
           ...(actionGroupKey(action) ? { group: actionGroupKey(action) } : {}),
         });
@@ -320,6 +321,7 @@ export const runJev = async (
           outcome: 'stale',
           fromProgressMarker: previousProgressMarker,
           signature: action.signature || `${operation}:${target || action.id}`,
+          targetIdentity: actionIdentity(action),
           recoveryEpoch,
           ...(actionGroupKey(action) ? { group: actionGroupKey(action) } : {}),
         });
@@ -369,6 +371,7 @@ export const runJev = async (
         fromProgressMarker: previousProgressMarker,
         toProgressMarker: snapshot.progressMarker,
         signature: action.signature || `${operation}:${target || action.id}`,
+        targetIdentity: actionIdentity(action),
         recoveryEpoch,
         ...(actionGroupKey(action) ? { group: actionGroupKey(action) } : {}),
         ...(feedback.length > 0 ? { feedback } : {}),

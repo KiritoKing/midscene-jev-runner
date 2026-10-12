@@ -80,6 +80,23 @@ independent run state. Text inputs in this offline suite are supplied by
 the caller; no test presents them as JEV `aiInput` behavior. Browser requests
 outside the fixture origin are aborted by the test context.
 
+## Review recovery regressions
+
+The maintained review regressions cover three generic mechanisms: bounded WAIT
+candidates after unchanged successful dispatch readback without loading markup,
+visible numeric-only progress, and cycle/failure suppression scoped to actual
+node/frame/document identity rather than a shared label signature. Variants use
+ordinary buttons and ARIA tabs, numeric headings and outputs, and identical
+cards and table rows. Counterexamples keep idle/stale/failed/old-epoch waiting
+unavailable, reject permanent no-ops without replay or false completion, exclude
+hidden numeric churn, and retain untried duplicate controls across identities.
+
+Delayed callbacks are controlled deterministically beyond the dispatch settle;
+this does not measure network latency. WAIT remains bounded and model-selected,
+not completion proof. Numeric progress evidence is still text-budgeted and may
+include volatile visible timers; overall step/time budgets and independent
+verification remain mandatory. These offline tests do not establish model accuracy.
+
 ## Real-model scenes and boundaries
 
 The live suite composes Midscene Test's public `createMidsceneNodes()` and

@@ -150,6 +150,7 @@ export interface JevRecentAction {
   fromProgressMarker?: string;
   toProgressMarker?: string;
   signature?: string;
+  targetIdentity?: string;
   recoveryEpoch?: number;
   feedback?: string[];
   group?: string;
