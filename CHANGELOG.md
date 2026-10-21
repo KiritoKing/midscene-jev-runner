@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+
+- Add opt-in, screenshot-only visual assertions/waits with masking, bounded image assets, and unchanged DOM defaults (additive minor feature).
+- Add public Midscene 1.16.0 visual comparison profile; no coordinate executor rewrite or release.
+
 ## [0.2.0] - 2026-10-12
 
 ### Stable promotion and compatibility

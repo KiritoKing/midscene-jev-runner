@@ -1,0 +1,13 @@
+{
+  "id": "ours-clef-openrouter",
+  "runner": "ours",
+  "transport": "openrouter",
+  "env": {
+    "MIDSCENE_JEV_API_KEY": {
+      "fromEnv": "OPENROUTER_API_KEY"
+    },
+    "MIDSCENE_JEV_MODEL_NAME": "cloudflare/clef",
+    "MIDSCENE_JEV_BASE_URL": "https://openrouter.ai/api/alpha/decisions"
+  },
+  "rates": {}
+}

@@ -48,7 +48,16 @@ export interface JevWaitForResult {
   usage: JevUsage;
 }
 
+export interface JevVisualOptions {
+  /** Explicit wire protocol; never inferred from the hostname. */
+  transport?: 'typesafe' | 'openrouter';
+  /** Additional image-only masks. Password inputs are always masked. */
+  maskSelectors?: string[];
+}
+
 export interface JevAssertionPolicy {
+  /** Opt-in screenshot-only evidence. Default: DOM evidence, no screenshot. */
+  visual?: false | JevVisualOptions;
   /** Pass threshold; the symmetric fail threshold is `1 - threshold`. */
   threshold?: number;
   /** Minimum probability that the observed evidence is sufficient. */

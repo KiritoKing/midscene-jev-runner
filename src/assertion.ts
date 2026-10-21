@@ -23,6 +23,11 @@ import type {
   JevUsage,
 } from './types';
 import { isRecord, sanitizedUrl, tokenCount } from './utils';
+import {
+  abortable,
+  captureVisualEvidence,
+  validateVisualModel,
+} from './visual';
 
 const textBytes = (value: unknown): number =>
   new TextEncoder().encode(JSON.stringify(value)).byteLength;
@@ -44,6 +49,7 @@ const assertionBody = (
   snapshot: BrowserSnapshot,
   prompt: string,
   context: string | undefined,
+  visualReference?: string,
 ): Record<string, unknown> => {
   let factLimit = Math.min(MAX_ASSERTION_FACTS, snapshot.facts.length);
   let pageTextLimit = MAX_PAGE_TEXT_LENGTH;
@@ -146,15 +152,24 @@ const assertionBody = (
       state: {
         assertion: prompt.slice(0, MAX_GOAL_LENGTH),
         ...(context ? { trusted_context: context } : {}),
-        browser_evidence: browserEvidence,
-        coverage: {
-          omitted_facts:
-            (snapshot.omittedFacts ?? 0) +
-            Math.max(0, snapshot.facts.length - facts.length),
-          text_truncated:
-            snapshot.textTruncated === true ||
-            snapshot.text.length > pageTextLimit,
-        },
+        browser_evidence: visualReference
+          ? { viewport_image: visualReference }
+          : browserEvidence,
+        coverage: visualReference
+          ? {
+              mode: 'viewport-image',
+              masked: true,
+              outside_viewport_observed: false,
+              image_may_be_resized_or_padded: true,
+            }
+          : {
+              omitted_facts:
+                (snapshot.omittedFacts ?? 0) +
+                Math.max(0, snapshot.facts.length - facts.length),
+              text_truncated:
+                snapshot.textTruncated === true ||
+                snapshot.text.length > pageTextLimit,
+            },
       },
       questions: {
         condition_satisfied: {
@@ -240,19 +255,75 @@ export const evaluateJevAssertion = async (
     );
   if (parentSignal?.aborted) abort();
   else parentSignal?.addEventListener('abort', abort, { once: true });
+  const visualTimeout = options.visual
+    ? setTimeout(
+        () => controller.abort(new Error('JEV visual assertion timed out.')),
+        requestTimeoutMs,
+      )
+    : undefined;
   const startedAt = performance.now();
   try {
     controller.signal.throwIfAborted();
-    const snapshot = await observe(page, options.prompt, {
-      includeGoalTextActions: false,
-      prepareExecution: false,
-    });
+    const model = process.env.MIDSCENE_JEV_MODEL_NAME || DEFAULT_JEV_MODEL_NAME;
+    if (options.visual) validateVisualModel(model, options.visual.transport);
+    const visual = options.visual
+      ? await captureVisualEvidence(
+          page,
+          options.visual,
+          controller.signal,
+          requestTimeoutMs,
+        )
+      : undefined;
+    const snapshot = visual
+      ? ({
+          url: 'about:blank',
+          title: '',
+          text: '',
+          facts: [],
+          layers: [],
+          alerts: [],
+          loading: false,
+          workflowSteps: [],
+          validationIssues: [],
+        } as unknown as BrowserSnapshot)
+      : await observe(page, options.prompt, {
+          includeGoalTextActions: false,
+          prepareExecution: false,
+        });
     controller.signal.throwIfAborted();
-    const raw = await requestDecision(
-      assertionBody(snapshot, options.prompt.trim(), options.context),
-      controller.signal,
-      { fetch: options.fetch, requestTimeoutMs },
+    const body = assertionBody(
+      snapshot,
+      options.prompt.trim(),
+      options.context,
+      visual?.reference,
     );
+    if (visual) {
+      if (options.visual && options.visual.transport === 'openrouter') {
+        const { browser_evidence: _evidence, ...textState } =
+          body.state as Record<string, unknown>;
+        if (textBytes(textState) > 4000)
+          throw new Error(
+            'OpenRouter visual text exceeded its conservative 4000-byte budget.',
+          );
+        body.state = [
+          JSON.stringify(textState),
+          {
+            type: 'image_url',
+            image_url: {
+              url: `data:image/${visual.assets[visual.reference].format};base64,${visual.assets[visual.reference].data_base64}`,
+            },
+          },
+        ];
+      } else body.assets = visual.assets;
+    }
+    const request = requestDecision(body, controller.signal, {
+      fetch: options.fetch,
+      requestTimeoutMs,
+      transport: options.visual ? options.visual.transport : undefined,
+    });
+    const raw = visual
+      ? await abortable(request, controller.signal)
+      : await request;
     const response = raw as JevResponse;
     const truthProbability = validProbability(
       response?.answers?.condition_satisfied,
@@ -288,6 +359,7 @@ export const evaluateJevAssertion = async (
       usage,
     };
   } finally {
+    if (visualTimeout) clearTimeout(visualTimeout);
     parentSignal?.removeEventListener('abort', abort);
   }
 };

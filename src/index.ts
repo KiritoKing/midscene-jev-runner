@@ -27,6 +27,7 @@ export type {
   JevRunOptions,
   JevRunResult,
   JevUsage,
+  JevVisualOptions,
   JevWaitForResult,
 } from './types';
 export type { JevWaitForOptions } from './wait-for';

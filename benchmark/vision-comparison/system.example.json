@@ -1,0 +1,13 @@
+{
+  "id": "ours-jev-1.14",
+  "runner": "ours",
+  "transport": "typesafe",
+  "env": {
+    "MIDSCENE_JEV_API_KEY": { "fromEnv": "TYPESAFE_API_KEY" },
+    "MIDSCENE_JEV_MODEL_NAME": "jev-1.14.0",
+    "MIDSCENE_JEV_BASE_URL": "https://api.typesafe.ai/v1"
+  },
+  "rates": {
+    "jev-1.14.0": { "input": 0.042, "output": 0 }
+  }
+}

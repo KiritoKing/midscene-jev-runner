@@ -20,7 +20,18 @@ export const jevActInputSchema = z.strictObject({
 
 export type JevActNodeInput = z.infer<typeof jevActInputSchema>;
 
+const visualSchema = z
+  .union([
+    z.literal(false),
+    z.strictObject({
+      transport: z.enum(['typesafe', 'openrouter']).optional(),
+      maskSelectors: z.array(z.string().min(1)).optional(),
+    }),
+  ])
+  .optional();
+
 export const jevAssertOptionsInputSchema = z.strictObject({
+  visual: visualSchema,
   context: z
     .string()
     .max(MAX_GOAL_LENGTH)
@@ -48,6 +59,7 @@ export const jevWaitForInputSchema = z.strictObject({
     .regex(/\S/u, 'prompt must contain a non-whitespace character'),
   options: z
     .strictObject({
+      visual: visualSchema,
       timeoutMs: z.number().int().positive().default(15_000),
       checkIntervalMs: z.number().int().positive().default(3_000),
       context: z.string().max(MAX_ASSERTION_CONTEXT_LENGTH).optional(),

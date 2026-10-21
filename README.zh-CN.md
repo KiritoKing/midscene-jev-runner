@@ -203,3 +203,7 @@ MIT。DOM snapshot 实现改编自 `jev-ultrafast`，详见
 [`THIRD_PARTY_LICENSES.txt`](./THIRD_PARTY_LICENSES.txt)。
 
 English documentation: [README.md](./README.md)。
+
+## Experimental visual assertions
+
+Opt-in screenshot-only `jevAssert` / `jevWaitFor`, with legacy DOM defaults unchanged. See [visual assertion contract](docs/visual-assertions.md) and [official Midscene comparison profile](docs/official-visual-profile.md).

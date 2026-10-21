@@ -1,0 +1,30 @@
+[
+  {
+    "id": "clef-openrouter-cloudflare",
+    "protocol": "openrouter",
+    "endpoint": "https://openrouter.ai/api/alpha/decisions",
+    "model": "cloudflare/clef",
+    "provider": "Cloudflare",
+    "keyEnv": "OPENROUTER_API_KEY",
+    "inputUsdPerMillion": 0.24,
+    "outputUsdPerMillion": 0
+  },
+  {
+    "id": "jev-1.14-typesafe",
+    "protocol": "typesafe",
+    "endpoint": "https://api.typesafe.ai/v1/systemone",
+    "model": "jev-1.14.0",
+    "keyEnv": "TYPESAFE_API_KEY",
+    "inputUsdPerMillion": 0.042,
+    "outputUsdPerMillion": 0
+  },
+  {
+    "id": "jev-latest-typesafe",
+    "protocol": "typesafe",
+    "endpoint": "https://api.typesafe.ai/v1/systemone",
+    "model": "jev-latest",
+    "keyEnv": "TYPESAFE_API_KEY",
+    "inputUsdPerMillion": 0.042,
+    "outputUsdPerMillion": 0
+  }
+]

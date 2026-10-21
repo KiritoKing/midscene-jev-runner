@@ -81,6 +81,7 @@ export const createJevNodes = <TContext>(
           prompt: input.prompt,
           context: input.options?.context,
           ...options.assertion,
+          visual: input.options?.visual ?? options.assertion?.visual,
           signal: execution.signal,
         });
         const summary = `JEV assertion ${result.verdict}: ${input.prompt}`;
@@ -118,6 +119,7 @@ export const createJevNodes = <TContext>(
           timeoutMs: input.options?.timeoutMs,
           checkIntervalMs: input.options?.checkIntervalMs,
           ...options.assertion,
+          visual: input.options?.visual ?? options.assertion?.visual,
           signal: execution.signal,
         });
         const output = {

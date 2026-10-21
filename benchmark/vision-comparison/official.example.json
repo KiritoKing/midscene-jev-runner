@@ -1,0 +1,48 @@
+{
+  "id": "official-jev-1.14-hybrid",
+  "runner": "official",
+  "env": {
+    "MIDSCENE_MODEL_NAME": {
+      "fromEnv": "MIDSCENE_MODEL_NAME"
+    },
+    "MIDSCENE_MODEL_API_KEY": {
+      "fromEnv": "MIDSCENE_MODEL_API_KEY"
+    },
+    "MIDSCENE_MODEL_BASE_URL": {
+      "fromEnv": "MIDSCENE_MODEL_BASE_URL"
+    },
+    "MIDSCENE_MODEL_FAMILY": {
+      "fromEnv": "MIDSCENE_MODEL_FAMILY"
+    },
+    "MIDSCENE_PLANNING_MODEL_NAME": {
+      "fromEnv": "MIDSCENE_MODEL_NAME"
+    },
+    "MIDSCENE_PLANNING_MODEL_API_KEY": {
+      "fromEnv": "MIDSCENE_MODEL_API_KEY"
+    },
+    "MIDSCENE_PLANNING_MODEL_BASE_URL": {
+      "fromEnv": "MIDSCENE_MODEL_BASE_URL"
+    },
+    "MIDSCENE_PLANNING_MODEL_FAMILY": {
+      "fromEnv": "MIDSCENE_MODEL_FAMILY"
+    },
+    "MIDSCENE_LOCATE_MODEL_NAME": "jev-1.14.0",
+    "MIDSCENE_LOCATE_MODEL_FAMILY": "jev",
+    "MIDSCENE_LOCATE_MODEL_BASE_URL": "https://api.typesafe.ai/v1",
+    "MIDSCENE_LOCATE_MODEL_API_KEY": {
+      "fromEnv": "TYPESAFE_API_KEY"
+    },
+    "MIDSCENE_INSIGHT_MODEL_NAME": "jev-1.14.0",
+    "MIDSCENE_INSIGHT_MODEL_FAMILY": "jev",
+    "MIDSCENE_INSIGHT_MODEL_BASE_URL": "https://api.typesafe.ai/v1",
+    "MIDSCENE_INSIGHT_MODEL_API_KEY": {
+      "fromEnv": "TYPESAFE_API_KEY"
+    }
+  },
+  "rates": {
+    "jev-1.14.0": {
+      "input": 0.042,
+      "output": 0
+    }
+  }
+}

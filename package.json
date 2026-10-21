@@ -25,6 +25,8 @@
     "dist",
     "docs/testing.md",
     "docs/releasing.md",
+    "docs/visual-assertions.md",
+    "docs/official-visual-profile.md",
     "example",
     "README.md",
     "README.zh-CN.md",
@@ -71,18 +73,22 @@
     "@commitlint/cli": "20.5.3",
     "@commitlint/config-conventional": "20.5.3",
     "@microsoft/api-extractor": "^7.52.0",
-    "@midscene/test": "1.13.0",
-    "@midscene/web": "1.13.0",
+    "@midscene/test": "1.16.0",
+    "@midscene/web": "1.16.0",
     "@rslib/core": "^0.18.3",
     "@types/node": "^20.19.0",
     "playwright": "^1.45.0",
     "typescript": "^5.8.3",
-    "vitest": "3.0.5"
+    "vitest": "3.0.5",
+    "@playwright/test": "1.63.0"
   },
   "sideEffects": false,
   "publishConfig": {
     "access": "public",
     "provenance": true,
     "registry": "https://registry.npmjs.org"
+  },
+  "dependencies": {
+    "sharp": "0.34.5"
   }
 }
