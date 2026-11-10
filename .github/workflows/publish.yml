@@ -20,7 +20,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 25
     outputs:
-      should_publish: ${{ steps.plan.outputs.should_publish }}
+      should_publish: ${{ steps.registry_preflight.outputs.should_publish }}
       dist_tag: ${{ steps.verify_release.outputs.dist_tag }}
       release_tag: ${{ steps.plan.outputs.release_tag }}
     steps:
@@ -77,8 +77,19 @@ jobs:
       - name: Run checks
         if: steps.plan.outputs.should_publish == 'true'
         run: pnpm check && pnpm test:legacy
-      - name: Run real-model release gate
+      - name: Pack release candidate
         if: steps.plan.outputs.should_publish == 'true'
+        run: |
+          mkdir -p release-artifact
+          pnpm pack --pack-destination release-artifact
+      - name: Reconcile candidate before paid regression
+        if: steps.plan.outputs.should_publish == 'true'
+        id: registry_preflight
+        run: node scripts/registry-release.mjs plan
+        env:
+          DIST_TAG: ${{ steps.verify_release.outputs.dist_tag }}
+      - name: Run real-model release gate
+        if: steps.registry_preflight.outputs.should_publish == 'true'
         run: pnpm test:e2e
         env:
           OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
@@ -87,7 +98,7 @@ jobs:
           MIDSCENE_MODEL_BASE_URL: ${{ vars.MIDSCENE_MODEL_BASE_URL }}
           MIDSCENE_MODEL_FAMILY: ${{ vars.MIDSCENE_MODEL_FAMILY }}
       - name: Upload sanitized release evidence
-        if: always() && steps.plan.outputs.should_publish == 'true'
+        if: always() && steps.registry_preflight.outputs.should_publish == 'true'
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: release-e2e-${{ github.run_id }}-${{ github.run_attempt }}
@@ -95,13 +106,8 @@ jobs:
           include-hidden-files: true
           if-no-files-found: warn
           retention-days: 30
-      - name: Pack verified package
-        if: steps.plan.outputs.should_publish == 'true'
-        run: |
-          mkdir -p release-artifact
-          pnpm pack --pack-destination release-artifact
       - name: Upload package artifact
-        if: steps.plan.outputs.should_publish == 'true'
+        if: steps.registry_preflight.outputs.should_publish == 'true'
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: npm-package
