@@ -223,19 +223,30 @@ absent. It never treats zero collected or skipped tests as a successful live
 run. Vitest runs one worker with no retries; the marketing case has a bounded
 seven-minute cap and each other case has a bounded five-minute cap, consistent
 with their JEV node budgets and Midscene text-input steps.
-The CI live job has a 25-minute total cap. Each case writes sanitized JSON
-evidence under `tests/e2e/.artifacts/` and writes a screenshot on failure;
-preflight also writes a status JSON. The directory and Midscene's local
-`midscene_run/` reports are git-ignored. Review generated reports before
-sharing them outside the local workspace; CI uploads only the controlled E2E
-artifact directory for seven days, even when the job fails.
+The release verification job has a 25-minute total cap, including offline
+checks and the live gate. Each case writes sanitized JSON evidence under
+`tests/e2e/.artifacts/` and writes a screenshot on failure; preflight also
+writes a status JSON. The directory and Midscene's local `midscene_run/`
+reports are git-ignored. Review generated reports before sharing them outside
+the local workspace; release CI uploads only the controlled E2E artifact
+directory for 30 days, even when the live gate fails.
 
-The GitHub workflow runs the offline gate and a separate live job for `push`,
-`pull_request`, and manual dispatch. Configure repository secrets
-`OPENROUTER_API_KEY` and `MIDSCENE_MODEL_API_KEY`, plus
-repository variables `MIDSCENE_MODEL_NAME`, `MIDSCENE_MODEL_BASE_URL`, and
-`MIDSCENE_MODEL_FAMILY`. Fork pull requests receive no repository secrets, so
-the live job fails with a visible missing-configuration result. Repository
-admins must decide which required checks and trusted branches should receive
-model credentials; this repository workflow alone does not configure branch
-protection. A checked-in workflow is not evidence that remote CI has run.
+Ordinary `push`, `pull_request` and manual CI dispatch run `pnpm check` without
+model secrets or provider calls. A green ordinary CI result therefore means
+only that the offline gate passed, not that live models were tested.
+The [release workflow](./releasing.md) retains the mandatory real-model gate
+before new npm publication, using the exact release candidate. It avoids
+repeating paid regression when the exact tarball is already published on the
+expected channel; unavailable or inconsistent registry state fails closed.
+Failed or interrupted unpublished attempts can still need another live run,
+so this is not an exactly-once or cost guarantee.
+
+The release gate uses repository secrets `OPENROUTER_API_KEY` and
+`MIDSCENE_MODEL_API_KEY`, plus repository variables `MIDSCENE_MODEL_NAME`,
+`MIDSCENE_MODEL_BASE_URL`, and `MIDSCENE_MODEL_FAMILY`. No credential values
+are part of source, tests or reports. Fork PRs run the same offline gate and
+are not given model credentials. Repository administrators own required
+checks and environment approvals; this workflow change does not alter them.
+A checked-in workflow is not evidence that remote CI has run. Local
+`pnpm test:e2e` remains available, but making paid requests still requires an
+appropriate provider configuration and spending authorization.
