@@ -3,6 +3,29 @@
 面向 [Midscene Test](https://midscenejs.com/zh/midscene-test/overview) 的社区维护
 JEV 集成。本项目独立于 Midscene 仓库，不是 Midscene 官方包。
 
+## 维护模式：优先使用官方 Jev 集成
+
+本项目已进入维护模式：仅做维护性更新，不再开发新功能。新项目请优先从下方
+Midscene 官方 Jev 接入文档开始。
+
+Midscene 从 [v1.15.6](https://github.com/web-infra-dev/midscene/releases/tag/v1.15.6)
+起已提供自己的 **实验性 Jev 集成**。新项目如果只是希望在 Midscene 中使用 Jev，
+建议先评估[官方接入文档](https://midscenejs.com/zh/model-api-setup#jev)，
+而不是仅为接入 Jev 添加本包。官方 model family 为 `jev`；配置方式和能力
+限制以该文档为准。
+
+两种集成不能直接互换：
+
+- 官方 Jev 通过 Midscene 原生 API 提供规划、定位和布尔判断；输入、滚动等复杂
+  动作可委派给另行配置的通用模型。
+- 本包提供 `runJev`、`evaluateJevAssertion`、`waitForJevAssertion`，以及
+  自定义 `jevAct` / `jevAssert` / `jevWaitFor` 节点。它在调用方持有的
+  `Page` 上执行有界、非文本的 DOM 动作循环，并分别判断条件和证据的置信度。
+- 迁移时需要调整配置、节点/API 调用、完成校验和结果/错误处理，并回归消费者自己的
+  流程。不能仅更换模型名就假定安全边界、模型调用预算或断言语义保持一致。
+
+下文保留本包现有用法。本说明不改变本包 API，也不宣称官方集成已经完全等价替代本包。
+
 本包提供：
 
 - `runJev(page, options)`：在调用方持有的 Playwright `Page` 上运行有界
