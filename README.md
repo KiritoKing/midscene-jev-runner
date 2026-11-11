@@ -4,6 +4,36 @@ Community-maintained JEV integration for
 [Midscene Test](https://midscenejs.com/midscene-test/overview). It is
 independent of the Midscene repository and is not an official Midscene package.
 
+## Maintenance mode: prefer the official Jev integration
+
+This project is in maintenance mode: it receives maintenance updates only,
+with no new feature development. For new projects, start with the official
+Midscene Jev integration documented below.
+
+Midscene includes its own **experimental Jev integration** starting with
+[v1.15.6](https://github.com/web-infra-dev/midscene/releases/tag/v1.15.6).
+For new projects, evaluate the
+[official Jev setup](https://midscenejs.com/model-api-setup#jev) first rather than
+adding this package solely to use Jev. The official model family is `jev`;
+see the linked documentation for its configuration and limits.
+
+The integrations are not drop-in equivalents:
+
+- Official Jev works through native Midscene APIs for planning, locating, and
+  boolean checks. Complex actions such as input and scrolling can delegate to
+  a separately configured general-purpose model.
+- This package exposes `runJev`, `evaluateJevAssertion`,
+  `waitForJevAssertion`, and the custom `jevAct` / `jevAssert` /
+  `jevWaitFor` nodes. It uses a bounded, non-text DOM-action loop on a
+  caller-owned `Page` and separate condition/evidence confidence thresholds.
+- Migrating requires adapting configuration, node/API calls, completion
+  checks, and result/error handling, then testing the consumer's workflows.
+  Do not assume the same safety boundaries, model-call budget, or assertion
+  semantics from a model-name change alone.
+
+Existing package usage is preserved below. This guidance does not change the
+package API or declare a fully equivalent replacement.
+
 The package provides:
 
 - `runJev(page, options)`, a bounded ReAct loop for a caller-owned Playwright
