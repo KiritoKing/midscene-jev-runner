@@ -52,7 +52,18 @@ export const waitForJevAssertion = async (
   while (true) {
     options.signal?.throwIfAborted();
     const checkStartedAt = performance.now();
-    lastAssertion = await evaluateJevAssertion(page, options);
+    lastAssertion = await evaluateJevAssertion(
+      page,
+      options.visual
+        ? {
+            ...options,
+            requestTimeoutMs: Math.min(
+              options.requestTimeoutMs ?? 60_000,
+              Math.max(1, timeoutMs - (performance.now() - startedAt)),
+            ),
+          }
+        : options,
+    );
     attempts += 1;
     usage.calls += lastAssertion.usage.calls;
     usage.inputTokens += lastAssertion.usage.inputTokens;

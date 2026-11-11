@@ -1,3 +1,14 @@
+const withAbort = <T>(promise: Promise<T>, signal: AbortSignal): Promise<T> =>
+  new Promise((resolve, reject) => {
+    const abort = () =>
+      reject(signal.reason ?? new Error('JEV request aborted.'));
+    signal.addEventListener('abort', abort, { once: true });
+    if (signal.aborted) abort();
+    promise
+      .then(resolve, reject)
+      .finally(() => signal.removeEventListener('abort', abort));
+  });
+
 export const requestJson = async (
   fetchImpl: typeof globalThis.fetch,
   url: string,
@@ -16,13 +27,16 @@ export const requestJson = async (
     controller.abort(signal.reason ?? new Error('JEV run aborted.'));
   signal.addEventListener('abort', abort, { once: true });
   try {
-    const response = await fetchImpl(url, {
-      ...init,
-      signal: controller.signal,
-    });
+    const response = await withAbort(
+      fetchImpl(url, {
+        ...init,
+        signal: controller.signal,
+      }),
+      controller.signal,
+    );
     if (!response.ok)
       throw new Error(`JEV request failed with HTTP ${response.status}.`);
-    const raw = await response.text();
+    const raw = await withAbort(response.text(), controller.signal);
     try {
       return JSON.parse(raw) as unknown;
     } catch {

@@ -3,6 +3,7 @@ import { requestJson } from './http';
 import { endpoint, isRecord, waitForAbortable } from './utils';
 
 export interface JevDecisionClientOptions {
+  transport?: 'typesafe' | 'openrouter';
   fetch?: typeof globalThis.fetch;
   requestTimeoutMs?: number;
 }
@@ -45,7 +46,23 @@ export const requestDecision = async (
     options.requestTimeoutMs ?? DEFAULT_REQUEST_TIMEOUT_MS;
   if (!Number.isFinite(requestTimeoutMs) || requestTimeoutMs <= 0)
     throw new Error('JEV request timeout must be a positive number.');
-  const baseUrl = process.env.MIDSCENE_JEV_BASE_URL || DEFAULT_JEV_BASE_URL;
+  const baseUrl =
+    process.env.MIDSCENE_JEV_BASE_URL ||
+    (options.transport === 'openrouter'
+      ? 'https://openrouter.ai/api/alpha/decisions'
+      : DEFAULT_JEV_BASE_URL);
+  if (options.transport === 'openrouter') {
+    let url: URL;
+    try {
+      url = new URL(baseUrl);
+    } catch {
+      throw new Error('Invalid JEV base URL configuration.');
+    }
+    if (!/\/decisions\/?$/u.test(url.pathname))
+      throw new Error(
+        'OpenRouter transport requires a full /decisions endpoint.',
+      );
+  }
 
   for (let attempt = 1; attempt <= 2; attempt += 1) {
     try {
@@ -57,6 +74,7 @@ export const requestDecision = async (
           headers: {
             Authorization: `Bearer ${apiKey}`,
             'Content-Type': 'application/json',
+            ...(body.assets ? { 'TypeSafe-Danger-Zone-Images': 'true' } : {}),
           },
           body: JSON.stringify(body),
         },
